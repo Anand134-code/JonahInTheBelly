@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Crossword 8×8</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+/* Layout: one column. Grid first, then the active clue, an on-screen keyboard, actions and the full clue lists. */
+:root{
+  --bg:#e6edf1; --ink:#14263a; --muted:#5a6b7b; --cell:#ffffff; --block:#14263a; --thin:#9fb0be; --line:#14263a;
+  --hi:#d9ebf6; --sel:#a9d3ee; --accent:#1f6f9c; --bad:#c23b2e; --ok:#23845a;
+  --key:#1f6f9c; --key-edge:#124563; --on-key:#ffffff; --key-glow:rgba(20,38,58,.38);
+  --kb:#ffffff; --kb-edge:#9fb0be;
+  --font:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1a24; --ink:#e6eef4; --muted:#8fa3b5; --cell:#182735; --block:#060b10; --thin:#3d5468; --line:#e6eef4;
+  --hi:#1f3a4f; --sel:#2f6286; --accent:#5fb2e0; --bad:#ff7a6b; --ok:#5fd39b;
+  --key:#5fb2e0; --key-edge:#2b6c92; --on-key:#0b1a26; --key-glow:rgba(0,0,0,.6);
+  --kb:#22384a; --kb-edge:#0b141c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1a24; --ink:#e6eef4; --muted:#8fa3b5; --cell:#182735; --block:#060b10; --thin:#3d5468; --line:#e6eef4;
+  --hi:#1f3a4f; --sel:#2f6286; --accent:#5fb2e0; --bad:#ff7a6b; --ok:#5fd39b;
+  --key:#5fb2e0; --key-edge:#2b6c92; --on-key:#0b1a26; --key-glow:rgba(0,0,0,.6);
+  --kb:#22384a; --kb-edge:#0b141c; color-scheme:dark}
+
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%}
+body{
+  margin:0; min-height:100%; background:var(--bg); color:var(--ink); font-family:var(--font);
+  display:flex; justify-content:center;
+  padding-block:24px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+}
+main{width:100%; max-width:520px; display:flex; flex-direction:column; gap:14px; min-width:0}
+button{font-family:inherit; color:inherit; -webkit-tap-highlight-color:transparent; touch-action:manipulation}
+button:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+.top{display:flex; justify-content:space-between; align-items:flex-end; gap:12px}
+.home{display:inline-flex; align-items:center; gap:6px; font-size:.9rem; font-weight:700; line-height:1; color:var(--ink); background:var(--cell); border:2px solid var(--line); border-radius:10px; padding:6px 12px; text-decoration:none; box-shadow:0 3px 0 var(--line); transition:transform .06s ease, box-shadow .06s ease; margin-bottom:10px}
+.home:active{transform:translateY(3px); box-shadow:0 0 0 var(--line)}
+.home:focus-visible{outline:3px solid var(--accent); outline-offset:3px}
+@media (prefers-reduced-motion:reduce){.home{transition:none}}
+.home:hover{color:var(--accent); text-decoration:underline}
+h1{margin:0; font-size:2rem; letter-spacing:-.02em; line-height:1.1}
+.sub{color:var(--muted); font-weight:700; margin-top:2px}
+.time{font-weight:800; font-size:1.3rem; font-variant-numeric:tabular-nums}
+.time small{display:block; font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); text-align:right}
+
+.seg{display:flex; gap:8px; flex-wrap:wrap; padding-bottom:4px}
+.btn{
+  font-size:1rem; font-weight:700; background:var(--cell); color:var(--ink); border:2px solid var(--line); border-radius:10px; padding:9px 14px; cursor:pointer;
+  box-shadow:0 4px 0 var(--line); transition:transform .06s ease, box-shadow .06s ease;
+}
+.btn:active{transform:translateY(4px); box-shadow:0 0 0 var(--line)}
+.btn[aria-pressed="true"]{background:var(--accent); color:#fff; border-color:var(--accent); transform:translateY(3px); box-shadow:0 1px 0 var(--line)}
+:root[data-theme="dark"] .btn[aria-pressed="true"]{color:#0b1a26}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn[aria-pressed="true"]{color:#0b1a26}}
+
+#wrap{container-type:inline-size; width:100%}
+#grid{display:grid; gap:1px; background:var(--thin); border:3px solid var(--line); border-radius:10px; overflow:hidden; width:100%}
+.c{position:relative; aspect-ratio:1; min-width:0; padding:0; border:0; border-radius:0; background:var(--cell); color:var(--accent);
+  font-weight:800; font-size:calc(100cqw / var(--n) * .56); line-height:1; display:flex; align-items:center; justify-content:center; text-transform:uppercase; cursor:pointer}
+.c.b{background:var(--block); cursor:default}
+.c.w{background:var(--hi)}
+.c.s{background:var(--sel); box-shadow:inset 0 0 0 3px var(--accent)}
+.c.x{background:color-mix(in srgb,var(--bad) 22%,var(--cell)); color:var(--bad)}
+.c .n{position:absolute; top:1px; left:3px; font-size:calc(100cqw / var(--n) * .26); font-weight:700; color:var(--muted); line-height:1}
+.c .l{pointer-events:none}
+
+.bar{display:flex; align-items:center; gap:8px; background:var(--cell); border:2px solid var(--line); border-radius:12px; padding:6px}
+.bar .nav{flex:none; width:40px; height:40px; font-size:1.4rem; font-weight:800; padding:0}
+.bar .txt{flex:1; min-width:0; line-height:1.25}
+.bar .txt b{display:block; font-size:.8rem; letter-spacing:.04em; color:var(--muted); font-weight:700}
+.bar .txt span{font-size:1.05rem; font-weight:700}
+
+.kb{display:flex; flex-direction:column; gap:8px; padding-bottom:4px}
+.row{display:flex; justify-content:center; gap:5px}
+.k{
+  flex:1 1 0; min-width:0; max-width:46px; height:46px; font-size:1.1rem; font-weight:800; background:var(--kb); border:2px solid var(--line); border-radius:9px; cursor:pointer; padding:0;
+  box-shadow:0 3px 0 var(--line); transition:transform .06s ease, box-shadow .06s ease; user-select:none; -webkit-user-select:none;
+}
+.k:active{transform:translateY(3px); box-shadow:0 0 0 var(--line)}
+.k.wide{flex:1.6 1 0; max-width:74px}
+.acts{display:flex; gap:8px; flex-wrap:wrap; padding-bottom:4px}
+#msg{min-height:1.4em; font-weight:700}
+#msg.win{color:var(--ok)}
+
+.lists{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+@media (max-width:420px){.lists{grid-template-columns:1fr}}
+.lists h2{margin:0 0 6px; font-size:1.05rem}
+.lists ul{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px}
+.cl{width:100%; text-align:left; display:flex; gap:8px; background:none; border:0; border-radius:8px; padding:6px 8px; cursor:pointer; font-size:.95rem; line-height:1.3}
+.cl b{flex:none; min-width:1.6em; color:var(--muted)}
+.cl:hover{background:var(--hi)}
+.cl.on{background:var(--sel)}
+.cl.done{color:var(--muted)}
+.cl.done span{text-decoration:line-through; text-decoration-thickness:1px}
+@media (prefers-reduced-motion:reduce){.btn,.k{transition:none}}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
+<style id="jonah-theme">
+/* Belly of the great fish: a deep teal world with bone-colored lines, shared by every game page. */
+:root:root:root{
+  --bg:#10404a; --ink:#f2ead8; --muted:#a8c4bd; --card:#1b5660; --cell:#1d5c66; --line:#d9cfb3; --thin:#4a8e94;
+  --hi:#26707a; --sel:#2f8a88; --given:#246671; --block:#0b2c33; --accent:#f4b650; --x:#7fd6c8; --o:#f4b650;
+  --ok:#7be0a8; --bad:#ff8a78; --on-accent:#06242a; --amber:#f4b650; --kb:#256a74; --kb-edge:#0b2c33;
+  --serif:"Fraunces",Georgia,"Times New Roman",serif; color-scheme:dark;
+}
+body{background:#10404a}
+h1{font-family:var(--serif); font-weight:700; letter-spacing:-.02em; text-shadow:0 2px 22px rgba(63,163,155,.4)}
+main{position:relative; z-index:1}
+:root:root .btn[aria-pressed="true"]{color:var(--on-accent)}
+:root:root .gear[aria-expanded="true"]{color:var(--on-accent)}
+:root:root .ghost{color:var(--on-accent)}
+.jscene{position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none}
+.jscene svg{position:absolute; inset:0; width:100%; height:100%}
+.jscene::after{content:""; position:absolute; inset:0; background:radial-gradient(ellipse at 50% 40%, transparent 30%, rgba(8,44,52,.4) 100%)}
+.jglow{animation:jbreathe 7s ease-in-out infinite}
+@keyframes jbreathe{0%,100%{opacity:.85}50%{opacity:1}}
+.jb{position:absolute; bottom:-20px; left:var(--x); width:var(--s); height:var(--s); border-radius:50%; border:1.5px solid rgba(190,240,230,.5); background:rgba(190,240,230,.08); opacity:0; animation:jrise var(--d) linear var(--delay) infinite}
+@keyframes jrise{0%{transform:translate(0,0); opacity:0}12%{opacity:.55}100%{transform:translate(18px,-110vh); opacity:0}}
+.jverse{align-self:center; margin:8px 0 0; max-width:34ch; text-align:center; font-family:var(--serif); font-style:italic; font-size:.98rem; line-height:1.5; color:var(--muted); text-wrap:balance}
+.jverse cite{display:block; margin-top:3px; font-style:normal; font-size:.85rem; color:var(--amber)}
+@media (prefers-reduced-motion:reduce){.jglow,.jb{animation:none} .jb{display:none}}
+</style>
+</head>
+<body>
+<div class="jscene" aria-hidden="true">
+  <svg viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="jw1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b8089"/><stop offset=".55" stop-color="#1f6a72"/><stop offset="1" stop-color="#14464e"/></linearGradient>
+      <radialGradient id="jm1" cx="200" cy="400" r="230" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#d9a043" stop-opacity=".6"/><stop offset=".4" stop-color="#d9a043" stop-opacity=".22"/><stop offset="1" stop-color="#d9a043" stop-opacity="0"/></radialGradient>
+    </defs>
+    <rect width="400" height="800" fill="url(#jw1)"/>
+    <rect class="jglow" width="400" height="800" fill="url(#jm1)"/>
+    
+  </svg>
+  <span class="jb" style="--x:8%;--s:8px;--d:14s;--delay:-3s"></span>
+  <span class="jb" style="--x:36%;--s:6px;--d:11s;--delay:-8s"></span>
+  <span class="jb" style="--x:70%;--s:9px;--d:15s;--delay:-1s"></span>
+  <span class="jb" style="--x:92%;--s:6px;--d:12s;--delay:-6s"></span>
+</div>
+
+<main>
+  <div class="top">
+    <div>
+      <a class="home" href="index.html"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/></svg>Home</a>
+      <h1>Crossword</h1>
+      <div class="sub">8×8 mini</div>
+    </div>
+    <div class="time" aria-label="Time"><small>Time</small><span id="time">0:00</span></div>
+  </div>
+
+  <div class="seg" id="picker" role="group" aria-label="Puzzle"></div>
+
+  <div id="wrap"><div id="grid" role="grid" aria-label="Crossword grid"></div></div>
+
+  <div class="bar">
+    <button class="btn nav" id="prev" aria-label="Previous clue">‹</button>
+    <div class="txt" aria-live="polite"><b id="cnum"></b><span id="ctext"></span></div>
+    <button class="btn nav" id="next" aria-label="Next clue">›</button>
+  </div>
+
+  <div class="kb" id="kb" aria-label="Keyboard"></div>
+
+  <div class="acts">
+    <button class="btn" id="check">Check</button>
+    <button class="btn" id="reveal">Reveal word</button>
+    <button class="btn" id="restart">Restart</button>
+  </div>
+  <div id="msg" role="status" aria-live="polite"></div>
+
+  <div class="lists">
+    <div><h2>Across</h2><ul id="la"></ul></div>
+    <div><h2>Down</h2><ul id="ld"></ul></div>
+  </div>
+  <p class="jverse">“I cried by reason of mine affliction unto the LORD, and he heard me”<cite>Jonah 2:2</cite></p>
+</main>
+<script>
+const PUZZLES=[{"name":"Puzzle 1","rows":["ARE##FAT","COPS#AGO","TWIN#MEN","##SOLID#","#TOWEL##","BUD#GIFT","ONE#SALE","YES##RUN"],"entries":[{"n":1,"d":"A","r":0,"c":0,"len":3,"clue":"Form of \"to be\" used with \"we\"","w":"ARE"},{"n":1,"d":"D","r":0,"c":0,"len":3,"clue":"Perform on stage","w":"ACT"},{"n":2,"d":"D","r":0,"c":1,"len":3,"clue":"Line of seats","w":"ROW"},{"n":3,"d":"D","r":0,"c":2,"len":8,"clue":"Installments of a TV show","w":"EPISODES"},{"n":4,"d":"A","r":0,"c":5,"len":3,"clue":"Not thin","w":"FAT"},{"n":4,"d":"D","r":0,"c":5,"len":8,"clue":"Well known to you","w":"FAMILIAR"},{"n":5,"d":"D","r":0,"c":6,"len":4,"clue":"Matured, like cheese","w":"AGED"},{"n":6,"d":"D","r":0,"c":7,"len":3,"clue":"2,000 pounds","w":"TON"},{"n":7,"d":"A","r":1,"c":0,"len":4,"clue":"Police officers","w":"COPS"},{"n":8,"d":"D","r":1,"c":3,"len":4,"clue":"Winter flakes","w":"SNOW"},{"n":9,"d":"A","r":1,"c":5,"len":3,"clue":"In the past","w":"AGO"},{"n":10,"d":"A","r":2,"c":0,"len":4,"clue":"One of a matching pair of siblings","w":"TWIN"},{"n":11,"d":"A","r":2,"c":5,"len":3,"clue":"Adult males","w":"MEN"},{"n":12,"d":"A","r":3,"c":2,"len":5,"clue":"Not liquid or gas","w":"SOLID"},{"n":13,"d":"D","r":3,"c":4,"len":4,"clue":"You walk on them","w":"LEGS"},{"n":14,"d":"A","r":4,"c":1,"len":5,"clue":"Dries you after a shower","w":"TOWEL"},{"n":14,"d":"D","r":4,"c":1,"len":4,"clue":"Melody","w":"TUNE"},{"n":15,"d":"A","r":5,"c":0,"len":3,"clue":"Flower before it blooms","w":"BUD"},{"n":15,"d":"D","r":5,"c":0,"len":3,"clue":"Young male","w":"BOY"},{"n":16,"d":"A","r":5,"c":4,"len":4,"clue":"Present","w":"GIFT"},{"n":17,"d":"D","r":5,"c":6,"len":3,"clue":"Illness with fever and aches","w":"FLU"},{"n":18,"d":"D","r":5,"c":7,"len":3,"clue":"Number of fingers","w":"TEN"},{"n":19,"d":"A","r":6,"c":0,"len":3,"clue":"Single unit","w":"ONE"},{"n":20,"d":"A","r":6,"c":4,"len":4,"clue":"Discount event","w":"SALE"},{"n":21,"d":"A","r":7,"c":0,"len":3,"clue":"Opposite of no","w":"YES"},{"n":22,"d":"A","r":7,"c":5,"len":3,"clue":"Jog quickly","w":"RUN"}]},{"name":"Puzzle 2","rows":["WIN#SLOT","ICE#PAIR","POSSIBLY","ENTER###","###RIDER","ATTITUDE","SHOE#AGE","KEYS#LED"],"entries":[{"n":1,"d":"A","r":0,"c":0,"len":3,"clue":"Come in first","w":"WIN"},{"n":1,"d":"D","r":0,"c":0,"len":4,"clue":"Clean with a cloth","w":"WIPE"},{"n":2,"d":"D","r":0,"c":1,"len":4,"clue":"Small symbol on a screen","w":"ICON"},{"n":3,"d":"D","r":0,"c":2,"len":4,"clue":"Bird's home","w":"NEST"},{"n":4,"d":"A","r":0,"c":4,"len":4,"clue":"Narrow opening for a coin","w":"SLOT"},{"n":4,"d":"D","r":0,"c":4,"len":6,"clue":"Ghost, or lively energy","w":"SPIRIT"},{"n":5,"d":"D","r":0,"c":5,"len":3,"clue":"Place for experiments","w":"LAB"},{"n":6,"d":"D","r":0,"c":6,"len":3,"clue":"Slippery fluid for cooking","w":"OIL"},{"n":7,"d":"D","r":0,"c":7,"len":3,"clue":"Attempt","w":"TRY"},{"n":8,"d":"A","r":1,"c":0,"len":3,"clue":"Frozen water","w":"ICE"},{"n":9,"d":"A","r":1,"c":4,"len":4,"clue":"Two of a kind","w":"PAIR"},{"n":10,"d":"A","r":2,"c":0,"len":8,"clue":"Maybe","w":"POSSIBLY"},{"n":11,"d":"D","r":2,"c":3,"len":6,"clue":"Run of related episodes or books","w":"SERIES"},{"n":12,"d":"A","r":3,"c":0,"len":5,"clue":"Come in","w":"ENTER"},{"n":13,"d":"A","r":4,"c":3,"len":5,"clue":"Person on a horse or bike","w":"RIDER"},{"n":14,"d":"D","r":4,"c":5,"len":4,"clue":"Having two parts","w":"DUAL"},{"n":15,"d":"D","r":4,"c":6,"len":4,"clue":"Border or rim","w":"EDGE"},{"n":16,"d":"D","r":4,"c":7,"len":4,"clue":"Tall grass by water","w":"REED"},{"n":17,"d":"A","r":5,"c":0,"len":8,"clue":"Way of thinking or behaving","w":"ATTITUDE"},{"n":17,"d":"D","r":5,"c":0,"len":3,"clue":"Pose a question","w":"ASK"},{"n":18,"d":"D","r":5,"c":1,"len":3,"clue":"Most common English word","w":"THE"},{"n":19,"d":"D","r":5,"c":2,"len":3,"clue":"Plaything","w":"TOY"},{"n":20,"d":"A","r":6,"c":0,"len":4,"clue":"Footwear","w":"SHOE"},{"n":21,"d":"A","r":6,"c":5,"len":3,"clue":"How old you are","w":"AGE"},{"n":22,"d":"A","r":7,"c":0,"len":4,"clue":"Used to unlock doors","w":"KEYS"},{"n":23,"d":"A","r":7,"c":5,"len":3,"clue":"Guided","w":"LED"}]},{"name":"Puzzle 3","rows":["ITEM#ADD","TAXI#LIE","SPAN#TEN","##MERIT#","#VISIT##","BIN#DUAL","USE#EDGE","SAD#SEED"],"entries":[{"n":1,"d":"A","r":0,"c":0,"len":4,"clue":"Single thing on a list","w":"ITEM"},{"n":1,"d":"D","r":0,"c":0,"len":3,"clue":"Belonging to it","w":"ITS"},{"n":2,"d":"D","r":0,"c":1,"len":3,"clue":"Faucet","w":"TAP"},{"n":3,"d":"D","r":0,"c":2,"len":8,"clue":"Looked at closely","w":"EXAMINED"},{"n":4,"d":"D","r":0,"c":3,"len":5,"clue":"Underground places to dig for coal","w":"MINES"},{"n":5,"d":"A","r":0,"c":5,"len":3,"clue":"Put 2 and 2 together","w":"ADD"},{"n":5,"d":"D","r":0,"c":5,"len":8,"clue":"Height above sea level","w":"ALTITUDE"},{"n":6,"d":"D","r":0,"c":6,"len":4,"clue":"What you eat","w":"DIET"},{"n":7,"d":"D","r":0,"c":7,"len":3,"clue":"Cozy room","w":"DEN"},{"n":8,"d":"A","r":1,"c":0,"len":4,"clue":"Cab","w":"TAXI"},{"n":9,"d":"A","r":1,"c":5,"len":3,"clue":"Untruth","w":"LIE"},{"n":10,"d":"A","r":2,"c":0,"len":4,"clue":"Distance from end to end","w":"SPAN"},{"n":11,"d":"A","r":2,"c":5,"len":3,"clue":"One more than nine","w":"TEN"},{"n":12,"d":"A","r":3,"c":2,"len":5,"clue":"Good quality worth praise","w":"MERIT"},{"n":13,"d":"D","r":3,"c":4,"len":5,"clue":"Fair attractions","w":"RIDES"},{"n":14,"d":"A","r":4,"c":1,"len":5,"clue":"Drop by","w":"VISIT"},{"n":14,"d":"D","r":4,"c":1,"len":4,"clue":"Travel permit stamped in a passport","w":"VISA"},{"n":15,"d":"A","r":5,"c":0,"len":3,"clue":"Trash container","w":"BIN"},{"n":15,"d":"D","r":5,"c":0,"len":3,"clue":"Big vehicle with a route","w":"BUS"},{"n":16,"d":"A","r":5,"c":4,"len":4,"clue":"Double","w":"DUAL"},{"n":17,"d":"D","r":5,"c":6,"len":3,"clue":"Years lived","w":"AGE"},{"n":18,"d":"D","r":5,"c":7,"len":3,"clue":"Was in front","w":"LED"},{"n":19,"d":"A","r":6,"c":0,"len":3,"clue":"Make work of","w":"USE"},{"n":20,"d":"A","r":6,"c":4,"len":4,"clue":"Sharp side of a blade","w":"EDGE"},{"n":21,"d":"A","r":7,"c":0,"len":3,"clue":"Unhappy","w":"SAD"},{"n":22,"d":"A","r":7,"c":4,"len":4,"clue":"Plant starter","w":"SEED"}]}];
+const $=id=>document.getElementById(id);
+let pi=0,puz,H,W,sol,cur,ents,cellA,cellD,numAt,sel,dir,marked,revealed,solved,t0,elapsed,cellEls;
+
+function load(i){start(PUZZLES[i],i)}
+function start(p,i){
+  pi=i;puz=p;H=puz.rows.length;W=puz.rows[0].length;
+  sol=puz.rows.map(r=>r.split(""));cur=sol.map(r=>r.map(()=>""));
+  ents=puz.entries.slice().sort((a,b)=>a.d===b.d?a.n-b.n:(a.d==="A"?-1:1));
+  cellA=sol.map(r=>r.map(()=>-1));cellD=sol.map(r=>r.map(()=>-1));numAt={};
+  ents.forEach((e,k)=>{numAt[e.r+","+e.c]=e.n;
+    for(let j=0;j<e.len;j++){const r=e.r+(e.d==="D"?j:0),c=e.c+(e.d==="A"?j:0);(e.d==="A"?cellA:cellD)[r][c]=k}});
+  marked=new Set();revealed=0;solved=false;sel=[ents[0].r,ents[0].c];dir="A";
+  t0=performance.now();elapsed=0;
+  document.querySelectorAll("#picker .btn").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.i===i));
+  buildGrid();buildClues();$("msg").textContent="";$("msg").className="";refresh();
+}
+function buildGrid(){
+  const g=$("grid");g.innerHTML="";g.style.gridTemplateColumns="repeat("+W+",1fr)";$("wrap").style.setProperty("--n",W);
+  cellEls=[];
+  for(let r=0;r<H;r++){cellEls.push([]);for(let c=0;c<W;c++){
+    const b=document.createElement("button");b.tabIndex=-1;b.setAttribute("role","gridcell");
+    if(sol[r][c]==="#"){b.className="c b";b.disabled=true;b.setAttribute("aria-hidden","true")}
+    else{b.className="c";const n=numAt[r+","+c];b.innerHTML=(n?'<span class="n">'+n+'</span>':"")+'<span class="l"></span>';
+      b.setAttribute("aria-label","Row "+(r+1)+", column "+(c+1));b.onclick=()=>pick(r,c)}
+    g.appendChild(b);cellEls[r].push(b)}}
+}
+function buildClues(){
+  for(const d of ["A","D"]){const ul=$(d==="A"?"la":"ld");ul.innerHTML="";
+    ents.forEach((e,k)=>{if(e.d!==d)return;const li=document.createElement("li"),b=document.createElement("button");
+      b.className="cl";b.dataset.k=k;b.innerHTML="<b>"+e.n+"</b><span>"+e.clue+" ("+e.len+")</span>";
+      b.onclick=()=>goto(k);li.appendChild(b);ul.appendChild(li)})}
+}
+function entryCells(k){const e=ents[k],o=[];for(let j=0;j<e.len;j++)o.push([e.r+(e.d==="D"?j:0),e.c+(e.d==="A"?j:0)]);return o}
+function entryAt(){const [r,c]=sel;let k=dir==="A"?cellA[r][c]:cellD[r][c];
+  if(k<0){dir=dir==="A"?"D":"A";k=dir==="A"?cellA[r][c]:cellD[r][c]}return k}
+function pick(r,c){
+  if(sel[0]===r&&sel[1]===c){const other=dir==="A"?cellD[r][c]:cellA[r][c];if(other>=0)dir=dir==="A"?"D":"A"}
+  else{sel=[r,c]}
+  refresh();
+}
+function goto(k){const e=ents[k];sel=[e.r,e.c];dir=e.d;refresh()}
+function step(delta){const k=entryAt(),n=(k+delta+ents.length)%ents.length;
+  const e=ents[n];
+  // jump to the first empty cell of the entry, else its start
+  const cells=entryCells(n),empty=cells.find(([r,c])=>!cur[r][c]);sel=empty||[e.r,e.c];dir=e.d;refresh()}
+function put(ch){
+  if(solved)return;const [r,c]=sel;cur[r][c]=ch;marked.delete(r+","+c);
+  const cells=entryCells(entryAt()),i=cells.findIndex(p=>p[0]===r&&p[1]===c);
+  if(i<cells.length-1)sel=cells[i+1];
+  checkSolved();refresh();
+}
+function back(){
+  if(solved)return;const [r,c]=sel;
+  if(cur[r][c]){cur[r][c]="";marked.delete(r+","+c)}
+  else{const cells=entryCells(entryAt()),i=cells.findIndex(p=>p[0]===r&&p[1]===c);
+    if(i>0){sel=cells[i-1];cur[sel[0]][sel[1]]="";marked.delete(sel[0]+","+sel[1])}}
+  refresh();
+}
+function arrow(dr,dc){
+  const want=dc?"A":"D",[r,c]=sel;
+  if(dir!==want){const k=want==="A"?cellA[r][c]:cellD[r][c];if(k>=0){dir=want;refresh();return}}
+  let nr=r+dr,nc=c+dc;
+  while(nr>=0&&nr<H&&nc>=0&&nc<W&&sol[nr][nc]==="#"){nr+=dr;nc+=dc}
+  if(nr>=0&&nr<H&&nc>=0&&nc<W){sel=[nr,nc];if((dir==="A"?cellA:cellD)[nr][nc]<0)dir=dir==="A"?"D":"A";refresh()}
+}
+const fmt=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+const secs=()=>Math.floor((solved?elapsed:performance.now()-t0)/1000);
+function checkSolved(){
+  for(let r=0;r<H;r++)for(let c=0;c<W;c++)if(sol[r][c]!=="#"&&cur[r][c]!==sol[r][c])return;
+  solved=true;elapsed=performance.now()-t0;
+  $("msg").className="win";$("msg").textContent="Solved in "+fmt(secs())+(revealed?" with "+revealed+" revealed letter"+(revealed>1?"s":""):" with no reveals")+".";
+}
+function refresh(){
+  const k=entryAt(),inWord=new Set(entryCells(k).map(p=>p[0]+","+p[1]));
+  for(let r=0;r<H;r++)for(let c=0;c<W;c++){
+    if(sol[r][c]==="#")continue;const el=cellEls[r][c],key=r+","+c;
+    el.querySelector(".l").textContent=cur[r][c];
+    el.className="c"+(inWord.has(key)?" w":"")+(sel[0]===r&&sel[1]===c?" s":"")+(marked.has(key)?" x":"");
+  }
+  const e=ents[k];$("cnum").textContent=e.n+" "+(e.d==="A"?"Across":"Down")+" ("+e.len+" letters)";$("ctext").textContent=e.clue;
+  document.querySelectorAll(".cl").forEach(b=>{const j=+b.dataset.k;
+    b.classList.toggle("on",j===k);
+    b.classList.toggle("done",entryCells(j).every(([r,c])=>cur[r][c]))});
+  $("time").textContent=fmt(secs());
+}
+$("check").onclick=()=>{
+  let wrong=0,filled=0;
+  for(let r=0;r<H;r++)for(let c=0;c<W;c++){if(sol[r][c]==="#"||!cur[r][c])continue;filled++;
+    if(cur[r][c]!==sol[r][c]){marked.add(r+","+c);wrong++}}
+  $("msg").className="";
+  $("msg").textContent=!filled?"Type some letters first.":wrong?wrong+" letter"+(wrong>1?"s are":" is")+" wrong, marked in red.":"Every letter so far is correct.";
+  refresh();
+};
+$("reveal").onclick=()=>{
+  if(solved)return;
+  for(const [r,c] of entryCells(entryAt())){if(cur[r][c]!==sol[r][c])revealed++;cur[r][c]=sol[r][c];marked.delete(r+","+c)}
+  checkSolved();refresh();
+};
+$("restart").onclick=()=>start(puz,pi);
+$("prev").onclick=()=>step(-1);$("next").onclick=()=>step(1);
+
+PUZZLES.forEach((p,i)=>{const b=document.createElement("button");b.className="btn";b.dataset.i=i;b.textContent=p.name;b.setAttribute("aria-pressed","false");b.onclick=()=>load(i);$("picker").appendChild(b)});
+
+/* ---------- Online puzzle builder ----------
+   Words come from the Datamuse word service (api.datamuse.com), clues from the
+   Free Dictionary API (api.dictionaryapi.dev). The grid is filled in the browser. */
+const WORDS_API="https://api.datamuse.com/words",DICT_API="https://api.dictionaryapi.dev/api/v2/entries/en/";
+const BAD=new Set("fuck fucks shit shits cunt cock cocks dick dicks piss slut sluts whore bitch fag fags dyke twat tits rape rapes porn nazi negro".split(" "));
+const rnd=n=>Math.floor(Math.random()*n);
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
+async function getJSON(url,ms){const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),ms||8000);
+  try{const r=await fetch(url,{signal:ac.signal});if(!r.ok)throw new Error("HTTP "+r.status);return await r.json()}finally{clearTimeout(tm)}}
+function pickMask(){
+  const base=[PUZZLES[0].rows,PUZZLES[2].rows].map(rs=>rs.map(r=>r.split("").map(ch=>ch==="#")));
+  let m=base[rnd(base.length)];
+  if(rnd(2))m=m[0].map((_,c)=>m.map(r=>r[c]));
+  if(rnd(2))m=m.map(r=>r.slice().reverse());
+  if(rnd(2))m=m.slice().reverse();
+  return m;
+}
+function slotsOf(m){
+  const h=m.length,w=m[0].length,out=[];
+  for(const d of ["A","D"]){const R=d==="A"?h:w,C=d==="A"?w:h,blk=(a,b)=>d==="A"?m[a][b]:m[b][a];
+    for(let a=0;a<R;a++){let b=0;while(b<C){
+      if(blk(a,b)){b++;continue}
+      let e=b;while(e<C&&!blk(a,e))e++;
+      if(e-b>=2){const cells=[];for(let x=b;x<e;x++)cells.push(d==="A"?[a,x]:[x,a]);out.push({d,r:cells[0][0],c:cells[0][1],len:e-b,cells})}
+      b=e}}}
+  return out;
+}
+async function fetchPool(lens){
+  const starts="abcdefghilmnoprstuw".split(""),pool={};
+  const jobs=[];
+  for(const L of lens){pool[L]=new Set();
+    for(const s of shuffle(starts.slice()).slice(0,10)){
+      jobs.push(getJSON(WORDS_API+"?sp="+s+"?".repeat(L-1)+"&max=300&md=fp").then(rows=>{
+        for(const o of rows){const w=o.word;if(!w||w.length!==L||!/^[a-z]+$/.test(w)||BAD.has(w)||!/[aeiouy]/.test(w))continue;
+          const tg=o.tags||[],f=tg.find(x=>x.startsWith("f:"));if(f&&parseFloat(f.slice(2))<0.8)continue;
+          if(!tg.some(x=>x==="n"||x==="v"||x==="adj"||x==="adv"))continue;pool[L].add(w)}
+      }))}}
+  const res=await Promise.allSettled(jobs);
+  if(res.filter(r=>r.status==="fulfilled").length<jobs.length/2)throw new Error("word service unavailable");
+  return pool;
+}
+function fillGrid(m,slots,pool,ms){
+  const h=m.length,w=m[0].length,g=Array.from({length:h},()=>Array(w).fill("")),used=new Set(),deadline=Date.now()+ms;
+  const words={};for(const L in pool)words[L]=shuffle([...pool[L]]);
+  const asg=new Array(slots.length).fill(null);
+  function cands(s){const pat=s.cells.map(([r,c])=>g[r][c]),out=[];
+    for(const x of words[s.len]){if(used.has(x))continue;let ok=true;
+      for(let i=0;i<s.len;i++)if(pat[i]&&pat[i]!==x[i]){ok=false;break}
+      if(ok){out.push(x);if(out.length>=40)break}}
+    return out}
+  let nodes=0;
+  function rec(){
+    if((++nodes&63)===0&&Date.now()>deadline)throw new Error("timeout");
+    let best=-1,bl=null;
+    for(let i=0;i<slots.length;i++){if(asg[i])continue;const l=cands(slots[i]);if(!l.length)return false;
+      if(!bl||l.length<bl.length){best=i;bl=l;if(l.length===1)break}}
+    if(best<0)return true;
+    const s=slots[best];
+    for(const x of bl){
+      const prev=s.cells.map(([r,c])=>g[r][c]);
+      s.cells.forEach(([r,c],i)=>g[r][c]=x[i]);asg[best]=x;used.add(x);
+      if(rec())return true;
+      s.cells.forEach(([r,c],i)=>g[r][c]=prev[i]);asg[best]=null;used.delete(x)}
+    return false}
+  try{if(!rec())return null}catch(e){return null}
+  return {g,asg};
+}
+function cleanClue(def,word){
+  let s=String(def||"").replace(/\s+/g," ").trim();
+  if(/^(plural|past|present participle|simple past|third.person|alternative|obsolete|archaic|abbreviation|initialism|acronym|misspelling|variant|eye dialect|nonstandard|dated|rare)\b/i.test(s))return null;
+  s=s.split(/;|:/)[0].replace(/\.$/,"").trim();
+  s=s.replace(new RegExp("\\b"+word+"[a-z]*","ig"),"___");
+  if(s.length>72){s=s.slice(0,72);s=s.slice(0,s.lastIndexOf(" ")>30?s.lastIndexOf(" "):72)+"…"}
+  if(s.length<3)return null;
+  return s[0].toUpperCase()+s.slice(1);
+}
+async function clueFor(word){
+  try{const j=await getJSON(DICT_API+word,6000);
+    for(const e of j)for(const mn of e.meanings||[])for(const d of mn.definitions||[]){const c=cleanClue(d.definition,word);if(c)return c}}catch(e){}
+  try{const j=await getJSON(WORDS_API+"?sp="+word+"&md=d&max=1",6000);
+    for(const d of (j[0]&&j[0].defs)||[]){const c=cleanClue(d.replace(/^\w+\t/,""),word);if(c)return c}}catch(e){}
+  return null;
+}
+let building=false;
+async function buildOnline(){
+  if(building)return;building=true;const btn=$("online");btn.disabled=true;
+  $("msg").className="";$("msg").textContent="Building a fresh puzzle online…";
+  try{
+    const lensSet=new Set();
+    for(const rs of [PUZZLES[0].rows,PUZZLES[2].rows])for(const s of slotsOf(rs.map(r=>r.split("").map(ch=>ch==="#"))))lensSet.add(s.len);
+    const pool=await fetchPool([...lensSet]);
+    let out=null,m,slots,clues=null;const known={};
+    for(let round=0;round<4&&!clues;round++){
+      out=null;
+      for(let a=0;a<10&&!out;a++){m=pickMask();slots=slotsOf(m);out=fillGrid(m,slots,pool,1500)}
+      if(!out)throw new Error("could not fill a grid");
+      $("msg").textContent="Looking up clues…";
+      const todo=out.asg.filter(w=>!(w in known));
+      await Promise.all(todo.map(async w=>{known[w]=await clueFor(w)}));
+      const bad=out.asg.filter(w=>!known[w]);
+      if(!bad.length)clues=out.asg.map(w=>known[w]);
+      else for(const w of bad)pool[w.length].delete(w);
+    }
+    if(!clues)throw new Error("couldn't find clues for the words");
+    const rows=out.g.map((r,ri)=>r.map((ch,ci)=>m[ri][ci]?"#":ch.toUpperCase()).join(""));
+    const starts={},ents=[];let n=0;
+    slots.forEach((s,i)=>{const k=s.r+","+s.c;ents.push({d:s.d,r:s.r,c:s.c,len:s.len,w:out.asg[i].toUpperCase(),clue:clues[i],k})});
+    const num={};
+    for(let r=0;r<m.length;r++)for(let c=0;c<m[0].length;c++)if(ents.some(e=>e.r===r&&e.c===c))num[r+","+c]=++n;
+    ents.forEach(e=>{e.n=num[e.k];delete e.k});
+    start({name:"Online puzzle",rows,entries:ents},-1);
+    $("msg").textContent="";
+  }catch(err){
+    const i=rnd(PUZZLES.length);load(i);
+    $("msg").className="";$("msg").textContent="Couldn't build an online puzzle ("+(err&&err.message||"offline")+"). Loaded "+PUZZLES[i].name+" instead.";
+  }finally{building=false;btn.disabled=false}
+}
+(()=>{const b=document.createElement("button");b.className="btn";b.id="online";b.dataset.i=-1;b.textContent="New online puzzle";b.setAttribute("aria-pressed","false");b.onclick=buildOnline;$("picker").appendChild(b)})();
+for(const row of ["QWERTYUIOP","ASDFGHJKL","ZXCVBNM"]){
+  const d=document.createElement("div");d.className="row";
+  for(const ch of row){const b=document.createElement("button");b.className="k";b.textContent=ch;b.onclick=()=>put(ch);d.appendChild(b)}
+  if(row[0]==="Z"){const b=document.createElement("button");b.className="k wide";b.textContent="⌫";b.setAttribute("aria-label","Delete");b.onclick=back;d.appendChild(b)}
+  $("kb").appendChild(d);
+}
+document.addEventListener("keydown",e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  if(/^[a-zA-Z]$/.test(e.key)){put(e.key.toUpperCase())}
+  else if(e.key==="Backspace"||e.key==="Delete"){e.preventDefault();back()}
+  else if(e.key==="ArrowLeft"){e.preventDefault();arrow(0,-1)}
+  else if(e.key==="ArrowRight"){e.preventDefault();arrow(0,1)}
+  else if(e.key==="ArrowUp"){e.preventDefault();arrow(-1,0)}
+  else if(e.key==="ArrowDown"){e.preventDefault();arrow(1,0)}
+  else if(e.key==="Tab"){e.preventDefault();step(e.shiftKey?-1:1)}
+  else if(e.key===" "||e.key==="Enter"){if(e.target.closest&&e.target.closest("button")&&e.target.id!=="grid")return;e.preventDefault();pick(sel[0],sel[1])}
+});
+setInterval(()=>{if(!solved)$("time").textContent=fmt(secs())},500);
+load(0);
+</script>
+</body>
+</html>

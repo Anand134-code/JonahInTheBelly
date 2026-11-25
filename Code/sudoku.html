@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sudoku 4×4 to 9×9</title>
+<meta name="description" content="Play Sudoku in any size from 4×4 up to 9×9, with three difficulty levels and a fresh puzzle every time.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%231f6f9c'/%3E%3Cpath d='M22 8v48M42 8v48M8 22h48M8 42h48' stroke='%23fff' stroke-width='4'/%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e6edf1;--ink:#14263a;--muted:#5a6b7b;--cell:#fff;--given:#d3dfe8;--accent:#1f6f9c;--bad:#c23b2e;--ok:#23845a;--line:#14263a;--thin:#9fb0be;--hi:#e3f0f8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a24;--ink:#e6eef4;--muted:#8fa3b5;--cell:#182735;--given:#22384a;--accent:#5fb2e0;--bad:#ff7a6b;--ok:#5fd39b;--line:#e6eef4;--thin:#4a6176;--hi:#1d3447}}
+:root[data-theme="dark"]{--bg:#0f1a24;--ink:#e6eef4;--muted:#8fa3b5;--cell:#182735;--given:#22384a;--accent:#5fb2e0;--bad:#ff7a6b;--ok:#5fd39b;--line:#e6eef4;--thin:#4a6176;--hi:#1d3447}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;justify-content:center}
+main{width:100%;max-width:480px;padding:28px 16px;display:flex;flex-direction:column;gap:16px}
+h1{margin:0;font-size:2rem;letter-spacing:-.02em}
+.home{display:inline-flex; align-items:center; gap:6px; font-size:.9rem; font-weight:700; line-height:1; color:var(--ink); background:var(--cell); border:2px solid var(--line); border-radius:10px; padding:6px 12px; text-decoration:none; box-shadow:0 3px 0 var(--line); transition:transform .06s ease, box-shadow .06s ease; margin-bottom:10px}
+.home:active{transform:translateY(3px); box-shadow:0 0 0 var(--line)}
+.home:focus-visible{outline:3px solid var(--accent); outline-offset:3px}
+@media (prefers-reduced-motion:reduce){.home{transition:none}}
+.home:hover{color:var(--accent);text-decoration:underline}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.cur{color:var(--muted);font-weight:700;margin-top:2px}
+.gear{display:flex;align-items:center;justify-content:center;width:46px;height:46px;padding:0;font:inherit;color:var(--ink);background:var(--cell);border:2px solid var(--line);border-radius:12px;cursor:pointer}
+.gear[aria-expanded="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+.panel{background:var(--cell);border:2px solid var(--line);border-radius:14px;padding:14px}
+.panel[hidden]{display:none}
+p{margin:0;color:var(--muted);line-height:1.45}
+.label{font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.seg{display:flex;gap:12px 6px;flex-wrap:wrap;padding-bottom:4px}
+.seg button,.pad button,#new{font:inherit;color:var(--ink);background:var(--cell);border:2px solid var(--line);border-radius:10px;padding:9px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+#sizes button{min-width:56px;font-weight:700}
+#new{background:var(--ink);color:var(--bg);font-weight:700}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+/* real-button feel: raised by default, pushes down when pressed, selected ones stay pushed in */
+.seg button,.pad button,#new,.gear{box-shadow:0 4px 0 var(--line);transition:transform .06s ease,box-shadow .06s ease;-webkit-tap-highlight-color:transparent}
+.seg button[aria-pressed="true"],.gear[aria-expanded="true"]{transform:translateY(3px);box-shadow:0 1px 0 var(--line)}
+.seg button:active,.pad button:active,#new:active,.gear:active{transform:translateY(4px);box-shadow:0 0 0 var(--line)}
+.c{transition:transform .06s ease,filter .06s ease;-webkit-tap-highlight-color:transparent}
+.c:active{transform:scale(.94);filter:brightness(.9)}
+#wrap{container-type:inline-size;width:100%}
+#grid{display:grid;border:4px solid var(--line);border-radius:14px;overflow:hidden;aspect-ratio:1;width:100%}
+.c{font-family:inherit;font-weight:700;font-size:clamp(1rem,6vw,2rem);font-size:calc(100cqw / var(--n) * .55);line-height:1;background:var(--cell);color:var(--accent);border:0;border-right:1px solid var(--thin);border-bottom:1px solid var(--thin);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;min-width:0}
+.c.tr{border-right:3px solid var(--line)}
+.c.tb{border-bottom:3px solid var(--line)}
+.c.lc{border-right:0}
+.c.lr{border-bottom:0}
+.c.h{background:var(--hi)}
+.c.g{background:var(--given);color:var(--ink)}
+.c.g.h{background:color-mix(in srgb,var(--accent) 28%,var(--given))}
+.c.s{box-shadow:inset 0 0 0 4px var(--accent)}
+.c.x{color:var(--bad);background:color-mix(in srgb,var(--bad) 16%,var(--cell))}
+.c.drop{box-shadow:inset 0 0 0 4px var(--ok);background:color-mix(in srgb,var(--ok) 18%,var(--cell))}
+.pad{display:grid;grid-template-columns:repeat(auto-fit,minmax(44px,1fr));gap:12px 6px;padding-bottom:4px}
+.pad button{font-size:1.3rem;font-weight:700;padding:12px 0;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
+.ghost{position:fixed;z-index:50;pointer-events:none;transform:translate(-50%,-130%);width:54px;height:54px;border-radius:14px;background:var(--accent);color:#fff;font-weight:700;font-size:1.6rem;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.pad button.clr{font-size:.95rem;grid-column:span 2}
+#msg{min-height:1.5em;font-weight:700}
+#msg.win{color:var(--ok)}
+.rules{font-size:.9rem}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.stat{background:var(--cell);border:2px solid var(--line);border-radius:12px;padding:8px 6px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.stat .k{font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-size:1.25rem;font-weight:700;font-variant-numeric:tabular-nums}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
+<style id="jonah-theme">
+/* Belly of the great fish: a deep teal world with bone-colored lines, shared by every game page. */
+:root:root:root{
+  --bg:#10404a; --ink:#f2ead8; --muted:#a8c4bd; --card:#1b5660; --cell:#1d5c66; --line:#d9cfb3; --thin:#4a8e94;
+  --hi:#26707a; --sel:#2f8a88; --given:#246671; --block:#0b2c33; --accent:#7fd6c8; --x:#7fd6c8; --o:#f4b650;
+  --ok:#7be0a8; --bad:#ff8a78; --on-accent:#06242a; --amber:#f4b650; --kb:#256a74; --kb-edge:#0b2c33;
+  --serif:"Fraunces",Georgia,"Times New Roman",serif; color-scheme:dark;
+}
+body{background:#10404a}
+h1{font-family:var(--serif); font-weight:700; letter-spacing:-.02em; text-shadow:0 2px 22px rgba(63,163,155,.4)}
+main{position:relative; z-index:1}
+:root:root .btn[aria-pressed="true"]{color:var(--on-accent)}
+:root:root .gear[aria-expanded="true"]{color:var(--on-accent)}
+:root:root .ghost{color:var(--on-accent)}
+.jscene{position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none}
+.jscene svg{position:absolute; inset:0; width:100%; height:100%}
+.jscene::after{content:""; position:absolute; inset:0; background:radial-gradient(ellipse at 50% 40%, transparent 30%, rgba(8,44,52,.4) 100%)}
+.jglow{animation:jbreathe 7s ease-in-out infinite}
+@keyframes jbreathe{0%,100%{opacity:.85}50%{opacity:1}}
+.jb{position:absolute; bottom:-20px; left:var(--x); width:var(--s); height:var(--s); border-radius:50%; border:1.5px solid rgba(190,240,230,.5); background:rgba(190,240,230,.08); opacity:0; animation:jrise var(--d) linear var(--delay) infinite}
+@keyframes jrise{0%{transform:translate(0,0); opacity:0}12%{opacity:.55}100%{transform:translate(18px,-110vh); opacity:0}}
+.jverse{align-self:center; margin:8px 0 0; max-width:34ch; text-align:center; font-family:var(--serif); font-style:italic; font-size:.98rem; line-height:1.5; color:var(--muted); text-wrap:balance}
+.jverse cite{display:block; margin-top:3px; font-style:normal; font-size:.85rem; color:var(--amber)}
+@media (prefers-reduced-motion:reduce){.jglow,.jb{animation:none} .jb{display:none}}
+</style>
+</head>
+<body>
+<div class="jscene" aria-hidden="true">
+  <svg viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="jw0" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b8089"/><stop offset=".55" stop-color="#1f6a72"/><stop offset="1" stop-color="#14464e"/></linearGradient>
+      <radialGradient id="jm0" cx="200" cy="330" r="230" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3fa39b" stop-opacity=".6"/><stop offset=".4" stop-color="#3fa39b" stop-opacity=".22"/><stop offset="1" stop-color="#3fa39b" stop-opacity="0"/></radialGradient>
+    </defs>
+    <rect width="400" height="800" fill="url(#jw0)"/>
+    <rect class="jglow" width="400" height="800" fill="url(#jm0)"/>
+    
+  </svg>
+  <span class="jb" style="--x:8%;--s:8px;--d:14s;--delay:-3s"></span>
+  <span class="jb" style="--x:36%;--s:6px;--d:11s;--delay:-8s"></span>
+  <span class="jb" style="--x:70%;--s:9px;--d:15s;--delay:-1s"></span>
+  <span class="jb" style="--x:92%;--s:6px;--d:12s;--delay:-6s"></span>
+</div>
+
+<main>
+  <div class="top">
+    <div>
+      <a class="home" href="index.html"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/></svg>Home</a>
+      <h1>Sudoku</h1>
+      <div class="cur" id="cur"></div>
+    </div>
+    <button id="gear" class="gear" aria-label="Settings" aria-expanded="false" aria-controls="panel">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+  <div class="panel" id="panel" hidden>
+    <div class="label">Grid size</div>
+    <div class="seg" id="sizes" role="group" aria-label="Grid size"></div>
+  </div>
+  <div>
+    <div class="label">Difficulty</div>
+    <div class="seg" id="diffs" role="group" aria-label="Difficulty">
+      <button data-d="0.4" aria-pressed="false">Easy</button>
+      <button data-d="0.5" aria-pressed="true">Medium</button>
+      <button data-d="0.6" aria-pressed="false">Hard</button>
+      <button id="new">New game</button>
+    </div>
+  </div>
+  <p class="rules" id="rules"></p>
+  <div id="wrap"><div id="grid" role="grid" aria-label="Sudoku grid"></div></div>
+  <div class="pad" id="pad" role="group" aria-label="Number pad"></div>
+  <div id="msg" role="status" aria-live="polite"></div>
+  <div class="stats" aria-label="Score">
+    <div class="stat"><span class="k">Time / par</span><span class="v" id="st-time">0:00 / 0:00</span></div>
+    <div class="stat"><span class="k">Placements</span><span class="v" id="st-place">0 / 0</span></div>
+    <div class="stat"><span class="k">Score</span><span class="v" id="st-score">0</span></div>
+    <div class="stat"><span class="k">Best</span><span class="v" id="st-best">–</span></div>
+  </div>
+  <p class="rules">Scoring: every empty cell is worth 100 points. Each number you place beyond the minimum needed costs 20 points (Placements counts every number you put in, including replacements), and each second over par time costs 1 point. Par is 10 seconds per empty cell. The clock starts when the puzzle appears, pauses while you are away from the tab, and stops when you solve it.</p>
+  <p class="jverse">“Then Jonah prayed unto the LORD his God out of the fish’s belly,”<cite>Jonah 2:1</cite></p>
+</main>
+<script>
+/* ---------- puzzle logic ---------- */
+const BOX={4:[2,2],6:[2,3],8:[2,4],9:[3,3]}; // [rows, cols] per box; 5 and 7 have no boxes
+let N=4,NN=16,bh=0,bw=0,boxed=false,diff=0.5;
+const range=n=>[...Array(n).keys()];
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const POP=range(1<<9).map(m=>{let c=0;while(m){c+=m&1;m>>=1}return c});
+function setSize(n){N=n;NN=n*n;const b=BOX[n];boxed=!!b;bh=b?b[0]:0;bw=b?b[1]:0}
+const boxOf=i=>Math.floor(Math.floor(i/N)/bh)*(N/bw)+Math.floor((i%N)/bw);
+function search(g,limit,rnd){
+  const rm=Array(N).fill(0),cm=Array(N).fill(0),bm=Array(N).fill(0),full=(1<<N)-1;
+  const box=boxed?range(NN).map(boxOf):null;
+  for(let i=0;i<NN;i++){const v=g[i];if(v){const bit=1<<(v-1);rm[Math.floor(i/N)]|=bit;cm[i%N]|=bit;if(boxed)bm[box[i]]|=bit}}
+  let found=0,first=null;
+  (function rec(){
+    let best=-1,bm_=0,bc=99;
+    for(let i=0;i<NN;i++){if(g[i])continue;
+      const m=full&~(rm[Math.floor(i/N)]|cm[i%N]|(boxed?bm[box[i]]:0)),c=POP[m];
+      if(c<bc){best=i;bm_=m;bc=c;if(c<=1)break}}
+    if(best<0){found++;if(!first)first=g.slice();return}
+    if(bc===0)return;
+    const r=Math.floor(best/N),c=best%N,b=boxed?box[best]:0;
+    let vals=[];for(let v=0;v<N;v++)if(bm_>>v&1)vals.push(v);
+    if(rnd)vals=shuffle(vals);
+    for(const v of vals){const bit=1<<v;
+      g[best]=v+1;rm[r]|=bit;cm[c]|=bit;if(boxed)bm[b]|=bit;
+      rec();
+      g[best]=0;rm[r]&=~bit;cm[c]&=~bit;if(boxed)bm[b]&=~bit;
+      if(found>=limit)return}
+  })();
+  return{found,first};
+}
+function makePuzzle(){
+  const sol=search(Array(NN).fill(0),1,true).first;
+  const g=sol.slice(),target=Math.round(NN*diff),t0=performance.now();let removed=0;
+  for(const i of shuffle(range(NN))){
+    if(removed>=target||performance.now()-t0>2500)break;
+    const keep=g[i];g[i]=0;
+    if(search(g.slice(),2,false).found===1)removed++;else g[i]=keep;
+  }
+  return g;
+}
+/* ---------- interface ---------- */
+let grid=[],given=[],sel=null;
+let placements=0,minimum=0,done=false,finalMsg="";
+/* clock: starts when the puzzle appears, pauses while the tab is hidden, stops when solved */
+let elapsed=0,tStart=0,running=false,paused=false;
+const fmt=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+const seconds=()=>Math.floor((elapsed+(running?performance.now()-tStart:0))/1000);
+const par=()=>minimum*10; // par time: 10 seconds per empty cell
+function startTimer(){elapsed=0;tStart=performance.now();running=true;paused=false}
+function stopTimer(){if(running){elapsed+=performance.now()-tStart;running=false}}
+setInterval(()=>{if(running&&!done)updateStats()},250);
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden){if(running){stopTimer();paused=true}}
+  else if(paused&&!done){tStart=performance.now();running=true;paused=false}
+});
+/* score = 100 per empty cell, -20 per placement beyond the minimum, -1 per second beyond par time */
+const score=()=>Math.max(0,minimum*100-20*Math.max(0,placements-minimum)-Math.max(0,seconds()-par()));
+const bestKey=()=>"sudoku-best2-"+N+"-"+diff;
+function getBest(){try{return +localStorage.getItem(bestKey())||0}catch(e){return 0}}
+function finish(){
+  stopTimer();
+  const sc=score(),secs=seconds(),extra=Math.max(0,placements-minimum),over=Math.max(0,secs-par()),prev=getBest();
+  if(sc>prev){try{localStorage.setItem(bestKey(),sc)}catch(e){}}
+  const parts=[];
+  if(extra)parts.push(extra+" extra placement"+(extra>1?"s":""));
+  if(over)parts.push(over+"s over par");
+  finalMsg="Solved in "+fmt(secs)+"! Score "+sc+(parts.length?" ("+parts.join(", ")+")":" — perfect run, no wasted placements and under par time")+(sc>prev&&prev?". New best!":".");
+}
+function updateStats(){
+  $("st-time").textContent=fmt(seconds())+" / "+fmt(par());
+  $("st-place").textContent=placements+" / "+minimum;
+  $("st-score").textContent=score();
+  const b=getBest();$("st-best").textContent=b||"–";
+}
+const $=id=>document.getElementById(id);
+function peers(i,j){return Math.floor(i/N)===Math.floor(j/N)||i%N===j%N||(boxed&&boxOf(i)===boxOf(j))}
+function conflicts(){const bad=new Set();
+  for(let i=0;i<NN;i++){if(!grid[i])continue;
+    for(let j=i+1;j<NN;j++)if(grid[j]===grid[i]&&peers(i,j)){bad.add(i);bad.add(j)}}
+  return bad}
+function setMsg(t,win){const m=$("msg");m.textContent=t;m.className=win?"win":""}
+function rulesText(){
+  return "Fill the grid with 1–"+N+" so every row and every column has each number exactly once"+
+    (boxed?", and so does every "+bh+"×"+bw+" box (rows × columns).":". This size has no boxes.")+
+    " Tap a cell and then a number, or drag a number into a cell."}
+function render(){
+  const el=$("grid");el.innerHTML="";
+  el.style.gridTemplateColumns="repeat("+N+",1fr)";el.style.setProperty("--n",N);
+  $("wrap").style.setProperty("--n",N);
+  const bad=conflicts(),sv=sel!==null?grid[sel]:0;
+  grid.forEach((v,i)=>{const r=Math.floor(i/N),c=i%N,b=document.createElement("button");
+    let cls="c";
+    if(given[i])cls+=" g";if(sel===i)cls+=" s";if(bad.has(i))cls+=" x";if(sv&&v===sv)cls+=" h";
+    if(boxed&&(c+1)%bw===0&&c<N-1)cls+=" tr";if(boxed&&(r+1)%bh===0&&r<N-1)cls+=" tb";
+    if(c===N-1)cls+=" lc";if(r===N-1)cls+=" lr";
+    b.className=cls;b.textContent=v||"";b.dataset.i=i;b.setAttribute("role","gridcell");
+    b.setAttribute("aria-label","Row "+(r+1)+", column "+(c+1)+(v?", "+v:", empty")+(given[i]?", given":""));
+    b.onclick=()=>{sel=i;render()};el.appendChild(b)});
+  if(grid.every(Boolean)&&bad.size===0){if(!done){done=true;finish()}setMsg(finalMsg,true)}
+  else if(bad.size)setMsg("Some numbers repeat in a row, column"+(boxed?" or box":"")+".");
+  else setMsg("");
+  updateStats();
+}
+function buildPad(){
+  const p=$("pad");p.innerHTML="";
+  for(let n=1;n<=N;n++){const b=document.createElement("button");b.textContent=n;b.dataset.v=n;
+    b.onclick=()=>{if(!suppress)put(n)};b.onpointerdown=e=>padDown(e,n);p.appendChild(b)}
+  const c=document.createElement("button");c.textContent="Clear";c.className="clr";c.dataset.v=0;
+  c.setAttribute("aria-label","Clear cell (drag onto a cell to clear it)");
+  c.onclick=()=>{if(!suppress)put(0)};c.onpointerdown=e=>padDown(e,0);p.appendChild(c);
+}
+/* drag a number from the pad into a cell (mouse, touch and pen) */
+let drag=null,suppress=false;
+function padDown(e,v){
+  if(e.button!==undefined&&e.button!==0)return;
+  drag={v,x:e.clientX,y:e.clientY,id:e.pointerId,active:false,ghost:null,over:null};
+}
+document.addEventListener("pointermove",e=>{
+  if(!drag||e.pointerId!==drag.id)return;
+  if(!drag.active){
+    if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<8)return;
+    drag.active=true;
+    const g=document.createElement("div");g.className="ghost";g.textContent=drag.v||"✕";
+    document.body.appendChild(g);drag.ghost=g;
+  }
+  drag.ghost.style.left=e.clientX+"px";drag.ghost.style.top=e.clientY+"px";
+  const t=document.elementFromPoint(e.clientX,e.clientY),c=t&&t.closest?t.closest(".c"):null;
+  const tgt=c&&!c.classList.contains("g")?c:null;
+  if(drag.over!==tgt){if(drag.over)drag.over.classList.remove("drop");if(tgt)tgt.classList.add("drop");drag.over=tgt}
+});
+function endDrag(e,drop){
+  if(!drag||e.pointerId!==drag.id)return;
+  const d=drag;drag=null;if(!d.active)return;
+  suppress=true;setTimeout(()=>{suppress=false},0);
+  d.ghost.remove();if(d.over)d.over.classList.remove("drop");
+  if(drop&&d.over)place(+d.over.dataset.i,d.v);
+}
+document.addEventListener("pointerup",e=>endDrag(e,true));
+document.addEventListener("pointercancel",e=>endDrag(e,false));
+function place(i,n){
+  if(done||given[i])return;
+  sel=i;
+  if(grid[i]===n){render();return}
+  grid[i]=n;if(n)placements++;
+  render();
+}
+function put(n){if(sel!==null)place(sel,n)}
+function newGame(){
+  const msg=$("msg");msg.textContent="Making a puzzle…";stopTimer();
+  setTimeout(()=>{grid=makePuzzle();given=grid.map(v=>v!==0);sel=null;placements=0;done=false;minimum=grid.filter(v=>!v).length;startTimer();render()},20);
+}
+function pickSize(n){
+  setSize(n);
+  document.querySelectorAll("#sizes button").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.n===n));
+  $("cur").textContent=n+"×"+n;
+  $("rules").textContent=rulesText();buildPad();newGame();
+}
+function togglePanel(open){
+  const p=$("panel"),g=$("gear");if(open===undefined)open=p.hidden;
+  p.hidden=!open;g.setAttribute("aria-expanded",open);
+}
+$("gear").onclick=()=>togglePanel();
+document.addEventListener("keydown",e=>{if(e.key==="Escape")togglePanel(false)});
+for(let n=4;n<=9;n++){const b=document.createElement("button");b.dataset.n=n;b.textContent=n+"×"+n;
+  b.setAttribute("aria-pressed","false");b.onclick=()=>{pickSize(n);togglePanel(false)};$("sizes").appendChild(b)}
+document.querySelectorAll("#diffs [data-d]").forEach(b=>b.onclick=()=>{
+  diff=+b.dataset.d;document.querySelectorAll("#diffs [data-d]").forEach(x=>x.setAttribute("aria-pressed",x===b));newGame()});
+$("new").onclick=newGame;
+document.addEventListener("keydown",e=>{
+  if(e.key.length===1&&e.key>="1"&&e.key<=String(N))put(+e.key);
+  else if(e.key==="Backspace"||e.key==="Delete"||e.key==="0")put(0);
+  else if(sel!==null&&e.key.startsWith("Arrow")){
+    const r=Math.floor(sel/N),c=sel%N;let nr=r,nc=c;
+    if(e.key==="ArrowLeft")nc=Math.max(0,c-1);if(e.key==="ArrowRight")nc=Math.min(N-1,c+1);
+    if(e.key==="ArrowUp")nr=Math.max(0,r-1);if(e.key==="ArrowDown")nr=Math.min(N-1,r+1);
+    e.preventDefault();sel=nr*N+nc;render()}
+});
+/* a tiny buzz on every press where the device supports it (Android browsers; iPhones ignore it) */
+document.addEventListener("pointerdown",e=>{
+  if(e.target.closest&&e.target.closest("button")){try{if(navigator.vibrate)navigator.vibrate(8)}catch(_){}}
+});
+pickSize(4);
+</script>
+</body>
+</html>

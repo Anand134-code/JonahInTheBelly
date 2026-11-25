@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Maze Run</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+/* Layout: one centered column. Size picker, stats, the maze as the focal point, a D-pad and actions below. */
+:root{
+  --bg:#e6edf1; --ink:#14263a; --muted:#5a6b7b; --card:#ffffff; --line:#14263a;
+  --x:#1f6f9c; --o:#c4790c; --ok:#23845a; --hi:#d9ebf6;
+  --font:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1a24; --ink:#e6eef4; --muted:#8fa3b5; --card:#182735; --line:#e6eef4;
+  --x:#5fb2e0; --o:#f0b445; --ok:#5fd39b; --hi:#1f3a4f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1a24; --ink:#e6eef4; --muted:#8fa3b5; --card:#182735; --line:#e6eef4;
+  --x:#5fb2e0; --o:#f0b445; --ok:#5fd39b; --hi:#1f3a4f; color-scheme:dark}
+
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%}
+body{
+  margin:0; min-height:100%; background:var(--bg); color:var(--ink); font-family:var(--font);
+  display:flex; justify-content:center;
+  padding-block:24px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+}
+main{width:100%; max-width:480px; display:flex; flex-direction:column; gap:16px; min-width:0}
+button{font-family:inherit; color:inherit; -webkit-tap-highlight-color:transparent; touch-action:manipulation}
+button:focus-visible{outline:3px solid var(--x); outline-offset:3px}
+.home{display:inline-flex; align-items:center; gap:6px; font-size:.9rem; font-weight:700; line-height:1; color:var(--ink); background:var(--card); border:2px solid var(--line); border-radius:10px; padding:6px 12px; text-decoration:none; box-shadow:0 3px 0 var(--line); transition:transform .06s ease, box-shadow .06s ease; margin-bottom:10px}
+.home:active{transform:translateY(3px); box-shadow:0 0 0 var(--line)}
+.home:focus-visible{outline:3px solid var(--x); outline-offset:3px}
+@media (prefers-reduced-motion:reduce){.home{transition:none}}
+.home:hover{color:var(--x); text-decoration:underline}
+h1{margin:0; font-size:2rem; letter-spacing:-.02em; line-height:1.1}
+.seg{display:flex; gap:8px; flex-wrap:wrap; padding-bottom:4px}
+.btn{
+  font-size:1rem; font-weight:700; background:var(--card); color:var(--ink); border:2px solid var(--line); border-radius:10px; padding:9px 14px; cursor:pointer;
+  box-shadow:0 4px 0 var(--line); transition:transform .06s ease, box-shadow .06s ease;
+}
+.btn:active{transform:translateY(4px); box-shadow:0 0 0 var(--line)}
+.btn[aria-pressed="true"]{background:var(--x); color:#fff; border-color:var(--x); transform:translateY(3px); box-shadow:0 1px 0 var(--line)}
+:root[data-theme="dark"] .btn[aria-pressed="true"]{color:#0b1a26}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn[aria-pressed="true"]{color:#0b1a26}}
+.btn.primary{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+
+.stats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+.stat{background:var(--card); border:2px solid var(--line); border-radius:12px; padding:8px 6px; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0}
+.stat .k{font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+.stat .v{font-size:1.3rem; font-weight:800; font-variant-numeric:tabular-nums}
+
+#wrap{width:100%}
+canvas{display:block; width:100%; aspect-ratio:1; border:3px solid var(--line); border-radius:12px; background:var(--card); touch-action:none; cursor:grab}
+canvas:focus-visible{outline:3px solid var(--x); outline-offset:3px}
+#msg{min-height:1.5em; margin:0; font-weight:700; text-align:center}
+#msg.win{color:var(--ok)}
+
+.pad{display:grid; grid-template-columns:repeat(3,64px); grid-template-rows:repeat(2,64px); gap:10px; justify-content:center; padding-bottom:6px}
+.pad .btn{width:64px; height:64px; padding:0; font-size:1.6rem; font-weight:800; display:flex; align-items:center; justify-content:center}
+.pad .up{grid-column:2; grid-row:1} .pad .left{grid-column:1; grid-row:2} .pad .down{grid-column:2; grid-row:2} .pad .right{grid-column:3; grid-row:2}
+.acts{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; padding-bottom:4px}
+.tip{margin:0; color:var(--muted); font-size:.9rem; text-align:center; line-height:1.4}
+@media (prefers-reduced-motion:reduce){.btn{transition:none}}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
+<style id="jonah-theme">
+/* Belly of the great fish: a deep teal world with bone-colored lines, shared by every game page. */
+:root:root:root{
+  --bg:#10404a; --ink:#f2ead8; --muted:#a8c4bd; --card:#1b5660; --cell:#1d5c66; --line:#d9cfb3; --thin:#4a8e94;
+  --hi:#26707a; --sel:#2f8a88; --given:#246671; --block:#0b2c33; --accent:#7fd6c8; --x:#7fd6c8; --o:#f4b650;
+  --ok:#7be0a8; --bad:#ff8a78; --on-accent:#06242a; --amber:#f4b650; --kb:#256a74; --kb-edge:#0b2c33;
+  --serif:"Fraunces",Georgia,"Times New Roman",serif; color-scheme:dark;
+}
+body{background:#10404a}
+h1{font-family:var(--serif); font-weight:700; letter-spacing:-.02em; text-shadow:0 2px 22px rgba(63,163,155,.4)}
+main{position:relative; z-index:1}
+:root:root .btn[aria-pressed="true"]{color:var(--on-accent)}
+:root:root .gear[aria-expanded="true"]{color:var(--on-accent)}
+:root:root .ghost{color:var(--on-accent)}
+.jscene{position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none}
+.jscene svg{position:absolute; inset:0; width:100%; height:100%}
+.jscene::after{content:""; position:absolute; inset:0; background:radial-gradient(ellipse at 50% 40%, transparent 30%, rgba(8,44,52,.4) 100%)}
+.jglow{animation:jbreathe 7s ease-in-out infinite}
+@keyframes jbreathe{0%,100%{opacity:.85}50%{opacity:1}}
+.jb{position:absolute; bottom:-20px; left:var(--x); width:var(--s); height:var(--s); border-radius:50%; border:1.5px solid rgba(190,240,230,.5); background:rgba(190,240,230,.08); opacity:0; animation:jrise var(--d) linear var(--delay) infinite}
+@keyframes jrise{0%{transform:translate(0,0); opacity:0}12%{opacity:.55}100%{transform:translate(18px,-110vh); opacity:0}}
+.jverse{align-self:center; margin:8px 0 0; max-width:34ch; text-align:center; font-family:var(--serif); font-style:italic; font-size:.98rem; line-height:1.5; color:var(--muted); text-wrap:balance}
+.jverse cite{display:block; margin-top:3px; font-style:normal; font-size:.85rem; color:var(--amber)}
+@media (prefers-reduced-motion:reduce){.jglow,.jb{animation:none} .jb{display:none}}
+</style>
+</head>
+<body>
+<div class="jscene" aria-hidden="true">
+  <svg viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="jw3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b8089"/><stop offset=".55" stop-color="#1f6a72"/><stop offset="1" stop-color="#14464e"/></linearGradient>
+      <radialGradient id="jm3" cx="200" cy="360" r="230" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#4fae7a" stop-opacity=".6"/><stop offset=".4" stop-color="#4fae7a" stop-opacity=".22"/><stop offset="1" stop-color="#4fae7a" stop-opacity="0"/></radialGradient>
+    </defs>
+    <rect width="400" height="800" fill="url(#jw3)"/>
+    <rect class="jglow" width="400" height="800" fill="url(#jm3)"/>
+    
+  </svg>
+  <span class="jb" style="--x:8%;--s:8px;--d:14s;--delay:-3s"></span>
+  <span class="jb" style="--x:36%;--s:6px;--d:11s;--delay:-8s"></span>
+  <span class="jb" style="--x:70%;--s:9px;--d:15s;--delay:-1s"></span>
+  <span class="jb" style="--x:92%;--s:6px;--d:12s;--delay:-6s"></span>
+</div>
+
+<main>
+  <div>
+    <a class="home" href="index.html"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/></svg>Home</a>
+    <h1>Maze Run</h1>
+  </div>
+
+  <div class="seg" id="sizes" role="group" aria-label="Maze size">
+    <button class="btn" data-n="8" aria-pressed="false">Small</button>
+    <button class="btn" data-n="12" aria-pressed="true">Medium</button>
+    <button class="btn" data-n="18" aria-pressed="false">Large</button>
+  </div>
+
+  <div class="stats" aria-label="Run stats">
+    <div class="stat"><span class="k">Time</span><span class="v" id="st-time">0:00</span></div>
+    <div class="stat"><span class="k">Moves</span><span class="v" id="st-moves">0</span></div>
+    <div class="stat"><span class="k">Best time</span><span class="v" id="st-best">–</span></div>
+  </div>
+
+  <div id="wrap"><canvas id="cv" tabindex="0" role="img" aria-label="Maze. Use the arrow keys, the buttons or a swipe to move the blue dot from the top-left corner to the star in the bottom-right corner."></canvas></div>
+  <p id="msg" role="status" aria-live="polite">Get the blue dot to the star.</p>
+
+  <div class="pad" aria-label="Move">
+    <button class="btn up" data-k="N" aria-label="Move up">▲</button>
+    <button class="btn left" data-k="W" aria-label="Move left">◀</button>
+    <button class="btn down" data-k="S" aria-label="Move down">▼</button>
+    <button class="btn right" data-k="E" aria-label="Move right">▶</button>
+  </div>
+  <div class="acts">
+    <button class="btn primary" id="new">New maze</button>
+    <button class="btn" id="hint">Show the way</button>
+  </div>
+  <p class="tip">Arrow keys or WASD move you. On a phone, swipe on the maze or use the arrows. Hold a direction to keep going.</p>
+  <p class="jverse">“And the LORD spake unto the fish, and it vomited out Jonah upon the dry land.”<cite>Jonah 2:10</cite></p>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+// direction: [row step, column step, wall bit on this side, wall bit on the far side]
+const DIRS={N:[-1,0,1,4],E:[0,1,2,8],S:[1,0,4,1],W:[0,-1,8,2]};
+let N=12,walls,pr,pc,moves,started,t0,elapsed,over,trail,hint,hinted,shortest;
+
+function gen(n){
+  walls=Array.from({length:n},()=>Array(n).fill(15));
+  const seen=Array.from({length:n},()=>Array(n).fill(false)),st=[[0,0]];seen[0][0]=true;
+  while(st.length){
+    const [r,c]=st[st.length-1],opts=[];
+    for(const k in DIRS){const [dr,dc]=DIRS[k],nr=r+dr,nc=c+dc;if(nr>=0&&nr<n&&nc>=0&&nc<n&&!seen[nr][nc])opts.push(k)}
+    if(!opts.length){st.pop();continue}
+    const k=opts[Math.floor(Math.random()*opts.length)],[dr,dc,bit,opp]=DIRS[k];
+    walls[r][c]&=~bit;walls[r+dr][c+dc]&=~opp;seen[r+dr][c+dc]=true;st.push([r+dr,c+dc]);
+  }
+}
+function bfs(fr,fc){ // shortest list of cells from (fr,fc) to the goal
+  const par=new Map(),key=(r,c)=>r*N+c,q=[[fr,fc]];par.set(key(fr,fc),null);
+  while(q.length){
+    const [r,c]=q.shift();
+    if(r===N-1&&c===N-1)break;
+    for(const k in DIRS){const [dr,dc,bit]=DIRS[k];
+      if(walls[r][c]&bit)continue;const nr=r+dr,nc=c+dc;
+      if(!par.has(key(nr,nc))){par.set(key(nr,nc),[r,c]);q.push([nr,nc])}}
+  }
+  const path=[];let cur=[N-1,N-1];
+  while(cur){path.push(cur);const p=par.get(key(cur[0],cur[1]));cur=p}
+  return path.reverse();
+}
+const fmt=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+const secs=()=>Math.floor((over||!started?elapsed:elapsed+(performance.now()-t0))/1000);
+const bestKey=()=>"maze-best-"+N;
+function getBest(){try{return +localStorage.getItem(bestKey())||0}catch(e){return 0}}
+function setBest(v){try{localStorage.setItem(bestKey(),v)}catch(e){}}
+
+function newMaze(){
+  gen(N);pr=0;pc=0;moves=0;started=false;elapsed=0;over=false;trail=[[0,0]];hint=null;hinted=false;
+  shortest=bfs(0,0).length-1;
+  $("msg").className="";$("msg").textContent="Get the blue dot to the star.";
+  sizeCanvas();stats();draw();
+}
+function stats(){
+  $("st-time").textContent=fmt(secs());$("st-moves").textContent=moves;
+  const b=getBest();$("st-best").textContent=b?fmt(b):"–";
+}
+function move(k){
+  if(over)return;
+  const [dr,dc,bit]=DIRS[k];
+  if(walls[pr][pc]&bit)return;
+  pr+=dr;pc+=dc;moves++;
+  if(!started){started=true;t0=performance.now()}
+  trail.push([pr,pc]);hint=null;
+  if(pr===N-1&&pc===N-1)win();
+  stats();draw();
+}
+function win(){
+  over=true;elapsed+=performance.now()-t0;const s=Math.round(elapsed/1000);
+  let extra="";
+  if(!hinted){const b=getBest();if(!b||s<b){setBest(s);extra=b?" New best time!":" Best time saved."}}
+  else extra=" (Best times skip runs that used a hint.)";
+  $("msg").className="win";
+  $("msg").textContent="You made it in "+fmt(s)+" with "+moves+" moves. The shortest way was "+shortest+"."+extra;
+}
+
+/* drawing */
+const cv=$("cv"),ctx=cv.getContext("2d");let css=0,cell=0;
+function sizeCanvas(){
+  const dpr=window.devicePixelRatio||1;css=Math.floor($("wrap").clientWidth)-6;if(css<100)css=100;
+  cv.width=Math.round(css*dpr);cv.height=Math.round(css*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);cell=css/N;
+}
+function draw(){
+  const cs=getComputedStyle(document.documentElement),col=n=>cs.getPropertyValue(n).trim();
+  const ink=col("--ink"),card=col("--card"),x=col("--x"),o=col("--o"),hi=col("--hi");
+  ctx.clearRect(0,0,css,css);ctx.fillStyle=card;ctx.fillRect(0,0,css,css);
+  ctx.fillStyle=hi;ctx.fillRect(0,0,cell,cell);                   // start cell
+  const mid=(r,c)=>[c*cell+cell/2,r*cell+cell/2];
+  // trail
+  if(trail.length>1){ctx.strokeStyle=x;ctx.globalAlpha=.3;ctx.lineWidth=cell*.28;ctx.lineCap="round";ctx.lineJoin="round";ctx.beginPath();
+    trail.forEach(([r,c],i)=>{const [px,py]=mid(r,c);i?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.stroke();ctx.globalAlpha=1}
+  // hint path
+  if(hint){ctx.strokeStyle=o;ctx.lineWidth=Math.max(3,cell*.18);ctx.setLineDash([cell*.28,cell*.22]);ctx.lineCap="butt";ctx.beginPath();
+    hint.forEach(([r,c],i)=>{const [px,py]=mid(r,c);i?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.stroke();ctx.setLineDash([])}
+  // goal star
+  const [gx,gy]=mid(N-1,N-1);ctx.fillStyle=o;ctx.font="800 "+(cell*.8)+'px system-ui,sans-serif';ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("★",gx,gy+cell*.04);
+  // walls
+  ctx.strokeStyle=ink;ctx.lineWidth=Math.max(2,cell*.1);ctx.lineCap="round";ctx.beginPath();
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){const w=walls[r][c],x0=c*cell,y0=r*cell;
+    if(w&1){ctx.moveTo(x0,y0);ctx.lineTo(x0+cell,y0)}
+    if(w&8){ctx.moveTo(x0,y0);ctx.lineTo(x0,y0+cell)}
+    if(w&4&&r===N-1){ctx.moveTo(x0,y0+cell);ctx.lineTo(x0+cell,y0+cell)}
+    if(w&2&&c===N-1){ctx.moveTo(x0+cell,y0);ctx.lineTo(x0+cell,y0+cell)}}
+  ctx.stroke();
+  // player
+  const [px,py]=mid(pr,pc);ctx.fillStyle=x;ctx.strokeStyle=card;ctx.lineWidth=Math.max(2,cell*.08);
+  ctx.beginPath();ctx.arc(px,py,cell*.3,0,Math.PI*2);ctx.fill();ctx.stroke();
+}
+
+/* input */
+const KEYS={ArrowUp:"N",ArrowDown:"S",ArrowLeft:"W",ArrowRight:"E",w:"N",s:"S",a:"W",d:"E",W:"N",S:"S",A:"W",D:"E"};
+document.addEventListener("keydown",e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  const k=KEYS[e.key];if(!k)return;e.preventDefault();move(k);
+});
+// on-screen arrows: move on press, repeat while held
+let holdT=null,holdI=null;
+function stopHold(){clearTimeout(holdT);clearInterval(holdI);holdT=holdI=null}
+document.querySelectorAll(".pad .btn").forEach(b=>{
+  const k=b.dataset.k;
+  b.addEventListener("pointerdown",e=>{e.preventDefault();stopHold();move(k);holdT=setTimeout(()=>{holdI=setInterval(()=>move(k),90)},300)});
+  ["pointerup","pointerleave","pointercancel"].forEach(t=>b.addEventListener(t,stopHold));
+  b.addEventListener("click",e=>{if(e.detail===0)move(k)}); // keyboard activation
+});
+// swipe or drag on the maze
+let sx=0,sy=0,dragging=false;
+cv.addEventListener("pointerdown",e=>{dragging=true;sx=e.clientX;sy=e.clientY;try{cv.setPointerCapture(e.pointerId)}catch(_){}});
+cv.addEventListener("pointermove",e=>{
+  if(!dragging)return;const dx=e.clientX-sx,dy=e.clientY-sy,th=Math.max(18,cell*.7);
+  if(Math.abs(dx)<th&&Math.abs(dy)<th)return;
+  move(Math.abs(dx)>Math.abs(dy)?(dx>0?"E":"W"):(dy>0?"S":"N"));sx=e.clientX;sy=e.clientY;
+});
+["pointerup","pointercancel"].forEach(t=>cv.addEventListener(t,()=>{dragging=false}));
+
+$("new").onclick=newMaze;
+$("hint").onclick=()=>{
+  if(over)return;hint=bfs(pr,pc);hinted=true;draw();
+  const mine=hint;setTimeout(()=>{if(hint===mine){hint=null;draw()}},2500);
+};
+document.querySelectorAll("#sizes .btn").forEach(b=>b.onclick=()=>{
+  N=+b.dataset.n;document.querySelectorAll("#sizes .btn").forEach(x=>x.setAttribute("aria-pressed",x===b));newMaze();
+});
+if(window.ResizeObserver)new ResizeObserver(()=>{sizeCanvas();draw()}).observe($("wrap"));
+else addEventListener("resize",()=>{sizeCanvas();draw()});
+try{matchMedia("(prefers-color-scheme: dark)").addEventListener("change",draw)}catch(e){}
+setInterval(()=>{if(started&&!over)stats()},250);
+newMaze();
+</script>
+</body>
+</html>

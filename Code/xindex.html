@@ -1,0 +1,131 @@
+<title>Sudoku 4×4 to 9×9</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+/* Layout: one centered column, a row of two oversized square keys as the focal point. */
+:root{
+  --bg:#e6edf1; --ink:#14263a; --muted:#5a6b7b;
+  --key:#1f6f9c; --key-edge:#124563; --on-key:#ffffff; --key-glow:rgba(20,38,58,.38);
+  --font:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1a24; --ink:#e6eef4; --muted:#8fa3b5;
+  --key:#5fb2e0; --key-edge:#2b6c92; --on-key:#0b1a26; --key-glow:rgba(0,0,0,.6); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1a24; --ink:#e6eef4; --muted:#8fa3b5;
+  --key:#5fb2e0; --key-edge:#2b6c92; --on-key:#0b1a26; --key-glow:rgba(0,0,0,.6); color-scheme:dark}
+
+*,*::before,*::after{box-sizing:border-box}
+html{height:100%}
+body{
+  margin:0; min-height:100%;
+  background:var(--bg); color:var(--ink); font-family:var(--font);
+  display:flex; align-items:center; justify-content:center;
+  padding-block:32px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+}
+main{display:flex; flex-direction:column; align-items:center; gap:44px; width:100%; max-width:560px; text-align:center}
+h1{margin:0; font-size:clamp(2.6rem,12vw,3.6rem); font-weight:800; letter-spacing:-.03em; line-height:1}
+.sub{margin:12px auto 0; max-width:30ch; color:var(--muted); font-size:1.05rem; line-height:1.45; text-wrap:balance}
+.keys{display:flex; flex-wrap:wrap; justify-content:center; gap:clamp(14px,4vw,28px) clamp(18px,6vw,32px)}
+
+/* The push-down square keys */
+.key{
+  --size:min(40vw, 230px);
+  --d:clamp(8px, calc(var(--size) * .05), 14px);
+  width:var(--size); height:var(--size);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+  background:var(--key); color:var(--on-key);
+  border-radius:clamp(18px, 9%, 32px);
+  text-decoration:none; user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent;
+  box-shadow:0 var(--d) 0 var(--key-edge), 0 calc(var(--d) * 1.9) 28px -10px var(--key-glow);
+  transition:transform .09s ease-out, box-shadow .09s ease-out;
+  margin-bottom:var(--d); /* room for the raised edge */
+}
+.key:hover{transform:translateY(-2px); box-shadow:0 calc(var(--d) + 2px) 0 var(--key-edge), 0 calc(var(--d) * 2.2) 32px -10px var(--key-glow)}
+.key:active{transform:translateY(calc(var(--d) - 2px)); box-shadow:0 2px 0 var(--key-edge), 0 6px 10px -4px var(--key-glow)}
+.key:focus-visible{outline:4px solid var(--ink); outline-offset:8px}
+.key svg{width:62%; height:auto; display:block}
+.key .go{font-size:clamp(1.1rem,4.8vw,1.8rem); font-weight:800; letter-spacing:-.01em; line-height:1}
+@media (prefers-reduced-motion:reduce){.key{transition:none}}
+</style>
+
+<main>
+  <div>
+    <h1>Games</h1>
+    <p class="sub">Five little games: Sudoku, a maze, tic-tac-toe, a crossword and a coin toss.</p>
+  </div>
+
+  <div class="keys">
+    <a class="key" href="sudoku.html" aria-label="Play Sudoku">
+      <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" aria-hidden="true">
+        <g stroke-width="1.5" opacity=".55">
+          <path d="M25 0V100M75 0V100M0 25H100M0 75H100"/>
+        </g>
+        <g stroke-width="4" stroke-linecap="round">
+          <path d="M50 0V100M0 50H100"/>
+        </g>
+        <g fill="currentColor" stroke="none" font-family="Bricolage Grotesque, system-ui, sans-serif" font-weight="800" font-size="20" text-anchor="middle">
+          <text x="12.5" y="19.5">1</text><text x="62.5" y="19.5">3</text>
+          <text x="37.5" y="44.5">4</text><text x="87.5" y="44.5">2</text>
+          <text x="12.5" y="69.5">2</text><text x="62.5" y="69.5">4</text>
+          <text x="37.5" y="94.5">3</text><text x="87.5" y="94.5">1</text>
+        </g>
+      </svg>
+      <span class="go">Sudoku</span>
+    </a>
+
+    <a class="key" href="coin.html" aria-label="Toss a coin">
+      <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" aria-hidden="true">
+        <!-- a coin caught mid-flip: thickness below, face above -->
+        <ellipse cx="50" cy="58" rx="38" ry="26" fill="currentColor" stroke="none" opacity=".45"/>
+        <ellipse cx="50" cy="50" rx="38" ry="26" stroke-width="5"/>
+        <ellipse cx="50" cy="50" rx="28" ry="18" stroke-width="2" opacity=".6"/>
+        <text x="50" y="59" fill="currentColor" stroke="none" font-family="Bricolage Grotesque, system-ui, sans-serif" font-weight="800" font-size="28" text-anchor="middle">H</text>
+        <path d="M82 14c4 4 6 9 6 15M82 14l-8 1M82 14l1 8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>
+      </svg>
+      <span class="go">Toss</span>
+    </a>
+
+    <a class="key" href="crossword.html" aria-label="Solve a crossword">
+      <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" aria-hidden="true">
+        <g stroke-width="1.5" opacity=".6">
+          <path d="M20 0V100M40 0V100M60 0V100M80 0V100M0 20H100M0 40H100M0 60H100M0 80H100"/>
+        </g>
+        <!-- blocked squares -->
+        <g fill="currentColor" stroke="none">
+          <rect x="0" y="20" width="20" height="20"/><rect x="40" y="20" width="20" height="20"/><rect x="80" y="20" width="20" height="20"/>
+          <rect x="20" y="60" width="20" height="20"/><rect x="60" y="60" width="20" height="20"/>        </g>
+        <g fill="currentColor" stroke="none" font-family="Bricolage Grotesque, system-ui, sans-serif" font-weight="800" font-size="15" text-anchor="middle">
+          <text x="10" y="16">C</text><text x="30" y="16">R</text><text x="50" y="16">O</text><text x="70" y="16">S</text><text x="90" y="16">S</text>
+          <text x="30" y="36">H</text><text x="70" y="36">A</text>
+          <text x="10" y="56">W</text><text x="30" y="56">O</text><text x="50" y="56">R</text><text x="70" y="56">D</text><text x="90" y="56">S</text>
+        </g>
+        <rect x="1" y="1" width="98" height="98" rx="2" stroke-width="3"/>
+      </svg>
+      <span class="go">Crossword</span>
+    </a>
+
+    <a class="key" href="tictactoe.html" aria-label="Play tic-tac-toe">
+      <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" aria-hidden="true">
+        <g stroke-width="4" stroke-linecap="round"><path d="M35 6V94M65 6V94M6 35H94M6 65H94"/></g>
+        <!-- X in the top-left, O in the center, X in the bottom-right -->
+        <g stroke-width="5" stroke-linecap="round"><path d="M12 12L28 28M28 12L12 28"/><path d="M72 72L88 88M88 72L72 88"/></g>
+        <circle cx="50" cy="50" r="9" stroke-width="5"/>      </svg>
+      <span class="go">Tic-tac-toe</span>
+    </a>
+
+    <a class="key" href="maze.html" aria-label="Run a maze">
+      <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" aria-hidden="true">
+        <rect x="4" y="4" width="92" height="92" rx="3" stroke-width="5"/>
+        <g stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 32H58"/><path d="M42 32V56"/><path d="M42 56H78"/><path d="M78 32V56"/><path d="M96 32H78"/><path d="M4 76H62"/><path d="M62 76V96"/><path d="M24 56V76"/>
+        </g>
+        <circle cx="18" cy="18" r="7" fill="currentColor" stroke="none"/>
+        <text x="83" y="87" fill="currentColor" stroke="none" font-family="system-ui, sans-serif" font-weight="800" font-size="20" text-anchor="middle">★</text>
+      </svg>
+      <span class="go">Maze</span>
+    </a>
+  </div>
+</main>

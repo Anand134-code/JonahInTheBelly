@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tic-Tac-Toe</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+/* Layout: one centered column. Mode and level up top, the board as the focal point, scores and actions below. */
+:root{
+  --bg:#e6edf1; --ink:#14263a; --muted:#5a6b7b; --card:#ffffff; --line:#14263a;
+  --x:#1f6f9c; --o:#c4790c; --ok:#23845a; --hi:#d9ebf6;
+  --font:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1a24; --ink:#e6eef4; --muted:#8fa3b5; --card:#182735; --line:#e6eef4;
+  --x:#5fb2e0; --o:#f0b445; --ok:#5fd39b; --hi:#1f3a4f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1a24; --ink:#e6eef4; --muted:#8fa3b5; --card:#182735; --line:#e6eef4;
+  --x:#5fb2e0; --o:#f0b445; --ok:#5fd39b; --hi:#1f3a4f; color-scheme:dark}
+
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%}
+body{
+  margin:0; min-height:100%; background:var(--bg); color:var(--ink); font-family:var(--font);
+  display:flex; justify-content:center;
+  padding-block:24px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+}
+main{width:100%; max-width:420px; display:flex; flex-direction:column; gap:16px; min-width:0}
+button{font-family:inherit; color:inherit; -webkit-tap-highlight-color:transparent; touch-action:manipulation}
+button:focus-visible{outline:3px solid var(--x); outline-offset:3px}
+.home{display:inline-flex; align-items:center; gap:6px; font-size:.9rem; font-weight:700; line-height:1; color:var(--ink); background:var(--card); border:2px solid var(--line); border-radius:10px; padding:6px 12px; text-decoration:none; box-shadow:0 3px 0 var(--line); transition:transform .06s ease, box-shadow .06s ease; margin-bottom:10px}
+.home:active{transform:translateY(3px); box-shadow:0 0 0 var(--line)}
+.home:focus-visible{outline:3px solid var(--x); outline-offset:3px}
+@media (prefers-reduced-motion:reduce){.home{transition:none}}
+.home:hover{color:var(--x); text-decoration:underline}
+h1{margin:0; font-size:2rem; letter-spacing:-.02em; line-height:1.1}
+.label{font-size:.78rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:6px}
+.seg{display:flex; gap:8px; flex-wrap:wrap; padding-bottom:4px}
+.btn{
+  font-size:1rem; font-weight:700; background:var(--card); color:var(--ink); border:2px solid var(--line); border-radius:10px; padding:9px 14px; cursor:pointer;
+  box-shadow:0 4px 0 var(--line); transition:transform .06s ease, box-shadow .06s ease;
+}
+.btn:active{transform:translateY(4px); box-shadow:0 0 0 var(--line)}
+.btn[aria-pressed="true"]{background:var(--x); color:#fff; border-color:var(--x); transform:translateY(3px); box-shadow:0 1px 0 var(--line)}
+:root[data-theme="dark"] .btn[aria-pressed="true"]{color:#0b1a26}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn[aria-pressed="true"]{color:#0b1a26}}
+.btn.primary{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+#levels[hidden]{display:none}
+
+#status{margin:0; min-height:2.2rem; font-size:1.5rem; font-weight:800; letter-spacing:-.01em; text-align:center}
+#status.win{color:var(--ok)}
+#wrap{container-type:inline-size; width:100%}
+#board{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; width:100%; padding-bottom:6px}
+.cell{
+  aspect-ratio:1; min-width:0; padding:0; background:var(--card); border:2px solid var(--line); border-radius:16px; cursor:pointer;
+  font-size:calc(100cqw / 3 * .62); font-weight:800; line-height:1; display:flex; align-items:center; justify-content:center;
+  box-shadow:0 6px 0 var(--line); transition:transform .06s ease, box-shadow .06s ease, background .15s;
+}
+.cell:not(:disabled):active{transform:translateY(6px); box-shadow:0 0 0 var(--line)}
+.cell:disabled{cursor:default; transform:translateY(4px); box-shadow:0 2px 0 var(--line); color:inherit}
+.cell.X{color:var(--x)} .cell.O{color:var(--o)}
+.cell.win{background:var(--hi); border-color:var(--ok)}
+.cell .m{display:block; animation:pop .16s ease-out}
+@keyframes pop{from{transform:scale(.4); opacity:0}to{transform:scale(1); opacity:1}}
+
+.score{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+.stat{background:var(--card); border:2px solid var(--line); border-radius:12px; padding:8px 6px; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0}
+.stat .k{font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+.stat .v{font-size:1.4rem; font-weight:800; font-variant-numeric:tabular-nums}
+.stat.x .v{color:var(--x)} .stat.o .v{color:var(--o)}
+.acts{display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding-bottom:4px}
+.reset{background:none; border:0; color:var(--muted); font-weight:700; font-size:.95rem; text-decoration:underline; cursor:pointer; padding:6px}
+.reset:hover{color:var(--ink)}
+@media (prefers-reduced-motion:reduce){.btn,.cell{transition:none} .cell .m{animation:none}}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
+<style id="jonah-theme">
+/* Belly of the great fish: a deep teal world with bone-colored lines, shared by every game page. */
+:root:root:root{
+  --bg:#10404a; --ink:#f2ead8; --muted:#a8c4bd; --card:#1b5660; --cell:#1d5c66; --line:#d9cfb3; --thin:#4a8e94;
+  --hi:#26707a; --sel:#2f8a88; --given:#246671; --block:#0b2c33; --accent:#7fd6c8; --x:#7fd6c8; --o:#f4b650;
+  --ok:#7be0a8; --bad:#ff8a78; --on-accent:#06242a; --amber:#f4b650; --kb:#256a74; --kb-edge:#0b2c33;
+  --serif:"Fraunces",Georgia,"Times New Roman",serif; color-scheme:dark;
+}
+body{background:#10404a}
+h1{font-family:var(--serif); font-weight:700; letter-spacing:-.02em; text-shadow:0 2px 22px rgba(63,163,155,.4)}
+main{position:relative; z-index:1}
+:root:root .btn[aria-pressed="true"]{color:var(--on-accent)}
+:root:root .gear[aria-expanded="true"]{color:var(--on-accent)}
+:root:root .ghost{color:var(--on-accent)}
+.jscene{position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none}
+.jscene svg{position:absolute; inset:0; width:100%; height:100%}
+.jscene::after{content:""; position:absolute; inset:0; background:radial-gradient(ellipse at 50% 40%, transparent 30%, rgba(8,44,52,.4) 100%)}
+.jglow{animation:jbreathe 7s ease-in-out infinite}
+@keyframes jbreathe{0%,100%{opacity:.85}50%{opacity:1}}
+.jb{position:absolute; bottom:-20px; left:var(--x); width:var(--s); height:var(--s); border-radius:50%; border:1.5px solid rgba(190,240,230,.5); background:rgba(190,240,230,.08); opacity:0; animation:jrise var(--d) linear var(--delay) infinite}
+@keyframes jrise{0%{transform:translate(0,0); opacity:0}12%{opacity:.55}100%{transform:translate(18px,-110vh); opacity:0}}
+.jverse{align-self:center; margin:8px 0 0; max-width:34ch; text-align:center; font-family:var(--serif); font-style:italic; font-size:.98rem; line-height:1.5; color:var(--muted); text-wrap:balance}
+.jverse cite{display:block; margin-top:3px; font-style:normal; font-size:.85rem; color:var(--amber)}
+@media (prefers-reduced-motion:reduce){.jglow,.jb{animation:none} .jb{display:none}}
+</style>
+</head>
+<body>
+<div class="jscene" aria-hidden="true">
+  <svg viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="jw2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b8089"/><stop offset=".55" stop-color="#1f6a72"/><stop offset="1" stop-color="#14464e"/></linearGradient>
+      <radialGradient id="jm2" cx="200" cy="260" r="230" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5fd0c0" stop-opacity=".6"/><stop offset=".4" stop-color="#5fd0c0" stop-opacity=".22"/><stop offset="1" stop-color="#5fd0c0" stop-opacity="0"/></radialGradient>
+    </defs>
+    <rect width="400" height="800" fill="url(#jw2)"/>
+    <rect class="jglow" width="400" height="800" fill="url(#jm2)"/>
+    
+  </svg>
+  <span class="jb" style="--x:8%;--s:8px;--d:14s;--delay:-3s"></span>
+  <span class="jb" style="--x:36%;--s:6px;--d:11s;--delay:-8s"></span>
+  <span class="jb" style="--x:70%;--s:9px;--d:15s;--delay:-1s"></span>
+  <span class="jb" style="--x:92%;--s:6px;--d:12s;--delay:-6s"></span>
+</div>
+
+<main>
+  <div>
+    <a class="home" href="index.html"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/></svg>Home</a>
+    <h1>Tic-Tac-Toe</h1>
+  </div>
+
+  <div>
+    <div class="label">Opponent</div>
+    <div class="seg" id="modes" role="group" aria-label="Opponent">
+      <button class="btn" data-mode="cpu" aria-pressed="true">Computer</button>
+      <button class="btn" data-mode="two" aria-pressed="false">Two players</button>
+    </div>
+  </div>
+  <div id="levels">
+    <div class="label">Level</div>
+    <div class="seg" role="group" aria-label="Computer level">
+      <button class="btn" data-level="easy" aria-pressed="false">Easy</button>
+      <button class="btn" data-level="medium" aria-pressed="true">Medium</button>
+      <button class="btn" data-level="hard" aria-pressed="false">Unbeatable</button>
+    </div>
+  </div>
+
+  <p id="status" role="status" aria-live="polite"></p>
+  <div id="wrap"><div id="board" role="grid" aria-label="Tic-tac-toe board"></div></div>
+
+  <div class="score" aria-label="Scores">
+    <div class="stat x"><span class="k" id="kx">You (X)</span><span class="v" id="sx">0</span></div>
+    <div class="stat"><span class="k">Draws</span><span class="v" id="sd">0</span></div>
+    <div class="stat o"><span class="k" id="ko">Computer (O)</span><span class="v" id="so">0</span></div>
+  </div>
+  <div class="acts">
+    <button class="btn primary" id="again">New game</button>
+    <button class="reset" id="reset">Reset scores</button>
+  </div>
+  <p class="jverse">“Salvation is of the LORD.”<cite>Jonah 2:9</cite></p>
+</main>
+<script>
+const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const $=id=>document.getElementById(id);
+function winner(b){
+  for(const l of LINES){const [a,c,d]=l;if(b[a]&&b[a]===b[c]&&b[a]===b[d])return{p:b[a],line:l}}
+  return b.every(Boolean)?{p:"draw"}:null;
+}
+const empties=b=>b.map((v,i)=>v?-1:i).filter(i=>i>=0);
+const other=p=>p==="X"?"O":"X";
+function minimax(b,turn,me,depth){
+  const w=winner(b);
+  if(w)return w.p==="draw"?0:(w.p===me?10-depth:depth-10);
+  let best=turn===me?-99:99;
+  for(const i of empties(b)){
+    b[i]=turn;const s=minimax(b,other(turn),me,depth+1);b[i]=null;
+    best=turn===me?Math.max(best,s):Math.min(best,s);
+  }
+  return best;
+}
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+function bestMove(b,me){
+  let best=-99,moves=[];
+  for(const i of empties(b)){b[i]=me;const s=minimax(b,other(me),me,1);b[i]=null;
+    if(s>best){best=s;moves=[i]}else if(s===best)moves.push(i)}
+  return pick(moves);
+}
+function findWin(b,p){for(const i of empties(b)){b[i]=p;const w=winner(b);b[i]=null;if(w&&w.p===p)return i}return -1}
+function cpuMove(b,me,level){
+  const free=empties(b);
+  if(level==="easy")return pick(free);
+  if(level==="medium"){
+    let m=findWin(b,me);if(m>=0)return m;
+    m=findWin(b,other(me));if(m>=0)return m;
+    return pick(free);
+  }
+  return bestMove(b,me);
+}
+
+let mode="cpu",level="medium",board,turn,over,winLine,starter="X",scores={X:0,D:0,O:0},timer=null;
+function render(){
+  const el=$("board");el.innerHTML="";
+  board.forEach((v,i)=>{
+    const b=document.createElement("button");
+    b.className="cell"+(v?" "+v:"")+(winLine&&winLine.includes(i)?" win":"");
+    b.setAttribute("role","gridcell");
+    b.setAttribute("aria-label","Row "+(Math.floor(i/3)+1)+", column "+(i%3+1)+(v?", "+v:", empty"));
+    if(v)b.innerHTML='<span class="m">'+v+'</span>';
+    b.disabled=!!v||over||(mode==="cpu"&&turn==="O");
+    b.onclick=()=>play(i);
+    el.appendChild(b);
+  });
+  $("sx").textContent=scores.X;$("sd").textContent=scores.D;$("so").textContent=scores.O;
+  $("kx").textContent=mode==="cpu"?"You (X)":"Player X";$("ko").textContent=mode==="cpu"?"Computer (O)":"Player O";
+}
+function setStatus(t,win){const s=$("status");s.textContent=t;s.className=win?"win":""}
+function statusFor(){
+  if(mode==="cpu")return turn==="X"?"Your turn":"Computer is thinking…";
+  return turn+"'s turn";
+}
+function newGame(){
+  clearTimeout(timer);
+  if(over)starter=other(starter);
+  board=Array(9).fill(null);turn=starter;over=false;winLine=null;
+  setStatus(statusFor());render();
+  if(mode==="cpu"&&turn==="O")computerTurn();
+}
+function finish(w){
+  over=true;winLine=w.line||null;
+  if(w.p==="draw"){scores.D++;setStatus("It's a draw")}
+  else{scores[w.p]++;
+    setStatus(mode==="cpu"?(w.p==="X"?"You win!":"Computer wins"):w.p+" wins!",true)}
+  render();
+}
+function play(i){
+  if(over||board[i]||(mode==="cpu"&&turn==="O"))return;
+  board[i]=turn;
+  const w=winner(board);
+  if(w){finish(w);return}
+  turn=other(turn);setStatus(statusFor());render();
+  if(mode==="cpu"&&turn==="O")computerTurn();
+}
+function computerTurn(){
+  clearTimeout(timer);
+  timer=setTimeout(()=>{
+    if(over)return;
+    const i=cpuMove(board,"O",level);board[i]="O";
+    const w=winner(board);
+    if(w){finish(w);return}
+    turn="X";setStatus(statusFor());render();
+  },450);
+}
+function resetScores(){scores={X:0,D:0,O:0};starter="X";over=false;newGame()}
+document.querySelectorAll("#modes .btn").forEach(b=>b.onclick=()=>{
+  mode=b.dataset.mode;
+  document.querySelectorAll("#modes .btn").forEach(x=>x.setAttribute("aria-pressed",x===b));
+  $("levels").hidden=mode!=="cpu";resetScores();
+});
+document.querySelectorAll("[data-level]").forEach(b=>b.onclick=()=>{
+  level=b.dataset.level;
+  document.querySelectorAll("[data-level]").forEach(x=>x.setAttribute("aria-pressed",x===b));resetScores();
+});
+$("again").onclick=newGame;$("reset").onclick=resetScores;
+newGame();
+</script>
+</body>
+</html>
